@@ -2,7 +2,10 @@ module Example where
 
 import MUD
 import Control.Monad (liftM)
+import Connector
 
+main :: IO ()
+main = connect "darkover.isilm.com" 5000 (return ())
 
 load :: MUD ()
 load = do

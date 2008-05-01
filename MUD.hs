@@ -25,6 +25,9 @@ data Command = Send Channel String
 
 data Channel = Local | Remote deriving (Eq, Show)
 
+runMUD :: MUD a -> State -> (State, a)
+runMUD (MUD f) init = f init
+
 instance Monad MUD where
   f >>= g = undefined
   return = undefined
@@ -146,11 +149,11 @@ updateVar var f = readVar var >>= setVar var . f
 
 -- Applies hooks, then sends the result to the client.
 receive :: String -> MUD String
-receive = trigger Remote
+receive = trigger Local
 
 -- Applies hooks, then sends the result to the server.
 send :: String -> MUD String
-send = trigger Local
+send = trigger Remote
 
 -- Like receive, but does not trigger hooks.
 echo :: String -> MUD ()
