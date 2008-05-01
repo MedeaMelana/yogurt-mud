@@ -1,9 +1,11 @@
-{-# OPTIONS_GHC -XRecursiveDo #-}
+{-# OPTIONS_GHC -fglasgow-exts #-}
 
 module MUD where
 
-import Data.IntMap (IntMap, empty, insert, delete)
+import Prelude hiding (lookup)
+import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
 import Control.Monad.Fix
+import Unsafe.Coerce
 
 
 -- The MUD monad.
@@ -12,12 +14,15 @@ data MUD a = MUD (State -> (State, a))
 
 data State = State
   { hooks    :: IntMap Hook
-  , nextHid  :: Int
+  , vars     :: IntMap Value
+  , supply   :: [Int]
   , groups   :: [String]
   , commands :: [Command]
   }
 
-data Command = Send String | Echo String
+data Command = Send Channel String
+
+data Channel = Local | Remote
 
 instance Monad MUD where
   f >>= g = undefined
@@ -35,23 +40,8 @@ updateState f = MUD $ \s -> (f s, ())
 queryState :: (State -> a) -> MUD a
 queryState q = MUD $ \s -> (s, q s)
 
-
--- Hooks
-
-data Channel = User | Remote
-type Pattern = String
-data Hook = Hook
-  { hid     :: Int
-  , channel :: Channel
-  , pattern :: Pattern
-  , action  :: MUD String
-  }
-
-incHid :: MUD Int
-incHid = do
-  h <- queryState nextHid
-  updateState $ \s -> s { nextHid = h + 1 }
-  return h
+initState :: State
+initState = State empty empty [0..] [] []
 
 -- Sadly, we cannot pass fields as function arguments.
 -- updateField :: (State -> a) -> (a -> a) -> MUD ()
@@ -60,9 +50,34 @@ incHid = do
 updateHooks :: (IntMap Hook -> IntMap Hook) -> MUD ()
 updateHooks f = updateState $ \s -> s { hooks = f (hooks s) }
 
+updateVars :: (IntMap Value -> IntMap Value) -> MUD ()
+updateVars f = updateState $ \s -> s { vars = f (vars s) }
+
+addCommand :: Command -> MUD ()
+addCommand c = updateState $ \s -> s { commands = commands s ++ [c] }
+
+
+
+
+-- Hooks
+
+type Pattern = String
+data Hook = Hook
+  { hid     :: Int
+  , channel :: Channel
+  , pattern :: Pattern
+  , action  :: MUD String
+  }
+
+mkId :: MUD Int
+mkId = do
+  i <- queryState (head . supply)
+  updateState $ \s -> s { supply = tail (supply s) }
+  return i
+
 mkHook :: Channel -> Pattern -> MUD String -> MUD Hook
 mkHook ch pat act = do
-  hid <- incHid
+  hid <- mkId
   let hook = Hook hid ch pat act
   chHook hook
   return hook
@@ -72,6 +87,9 @@ chHook hook = updateHooks $ insert (hid hook) hook
 
 rmHook :: Hook -> MUD ()
 rmHook hook = updateHooks $ delete (hid hook)
+
+allHooks :: MUD [Hook]
+allHooks = queryState (elems . hooks)
 
 
 -- Groups
@@ -83,59 +101,69 @@ setGroups :: [String] -> MUD ()
 setGroups gs = updateState $ \s -> s { groups = gs }
 
 
-
 -- Hook derivatives
-
 
 mkTrigger :: Pattern -> MUD () -> MUD Hook
 mkTrigger pat act = mkHook Remote pat (act >> group 0)
 
 mkTriggerOnce :: Pattern -> MUD () -> MUD Hook
-mkTriggerOnce pat act = mdo
+mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
   hook <- mkTrigger pat (act >> rmHook hook)
   return hook
 
 mkAlias :: Pattern -> String -> MUD Hook
-mkAlias pat subst = mkHook User ("^" ++ pat ++ "($| )") $ do
+mkAlias pat subst = mkHook Local ("^" ++ pat ++ "($| )") $ do
   suffix <- group 1
   return (subst ++ suffix)
 
 
-
 -- Variables
 
-
-data Var a = Var
+data Var a = Var Int
+data Value = forall a. Value a
 
 mkVar :: a -> MUD (Var a)
-mkVar = undefined
+mkVar val = do
+  i <- mkId
+  setVar (Var i) val
+  return (Var i)
 
 setVar :: Var a -> a -> MUD ()
-setVar = undefined
+setVar (Var i) val = updateVars $ insert i (Value val)
 
 readVar :: Var a -> MUD a
-readVar = undefined
+readVar (Var i) = do
+  varmap <- queryState vars
+  Value val <- lookup i varmap
+  return (unsafeCoerce val)
+
+updateVar :: Var a -> (a -> a) -> MUD ()
+updateVar var f = readVar var >>= setVar var . f
 
 
-
--- Matching hooks
-
+-- I/O
 
 -- Applies hooks, then sends the result to the client.
 receive :: String -> MUD String
-receive = undefined
+receive = trigger Remote
 
 -- Applies hooks, then sends the result to the server.
 send :: String -> MUD String
-send = undefined
+send = trigger Local
 
 -- Like receive, but does not trigger hooks.
 echo :: String -> MUD ()
-echo = undefined
+echo = io Local
 
 -- Like send, but does not trigger hooks.
-recho :: String -> MUD ()
-recho = undefined
+echor :: String -> MUD ()
+echor = io Remote
+
+trigger :: Channel -> String -> MUD String
+trigger = undefined
 
 fire :: String -> Hook -> MUD String
 fire = undefined
+
+io :: Channel -> String -> MUD ()
+io ch message = addCommand (Send ch message)
