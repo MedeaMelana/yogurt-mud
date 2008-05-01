@@ -7,6 +7,7 @@ import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
 import Control.Monad.Fix
 import Unsafe.Coerce
 import Text.Regex.Posix
+import Debug.Trace (trace)
 
 
 -- The MUD monad.
@@ -21,20 +22,25 @@ data State = State
   , commands :: [Command]
   }
 
-data Command = Send Channel String
+data Command = Send Channel String deriving (Eq, Show)
 
 data Channel = Local | Remote deriving (Eq, Show)
 
 runMUD :: MUD a -> State -> (State, a)
 runMUD (MUD f) init = f init
 
+-- TODO: Use MonadState?
+
 instance Monad MUD where
-  f >>= g = undefined
-  return = undefined
+  (MUD f) >>= g = MUD $ \s ->
+    let (t, x) = f s
+        MUD h  = g x
+     in h t
+  return x = MUD $ \s -> (s, x)
 
 instance MonadFix MUD where
+  -- What on earth have I written here? But it works!
   -- mfix :: (a -> MUD a) -> MUD a
-  -- What on earth have I written here? Does it work?
   mfix f = MUD $ \s ->
     let (MUD g) = (f . snd . g) s in g s
 
@@ -108,7 +114,7 @@ setGroups gs = updateState $ \s -> s { groups = gs }
 -- Hook derivatives
 
 mkTrigger :: Pattern -> MUD () -> MUD Hook
-mkTrigger pat act = mkHook Remote pat (act >> group 0)
+mkTrigger pat act = mkHook Local pat (act >> group 0)
 
 mkTriggerOnce :: Pattern -> MUD () -> MUD Hook
 mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
@@ -116,7 +122,7 @@ mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
   return hook
 
 mkAlias :: Pattern -> String -> MUD Hook
-mkAlias pat subst = mkHook Local ("^" ++ pat ++ "($| )") $ do
+mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| )") $ do
   suffix <- group 1
   return (subst ++ suffix)
 
@@ -173,18 +179,19 @@ trigger ch message = do
         io ch subst
         return subst
   where
-    ok hook = channel hook == ch && pattern hook =~ message
+    ok hook = channel hook == ch && message =~ pattern hook
 
 fire :: String -> Hook -> MUD String
 fire message hook = do
     if null match
       then return before
       else do
+        setGroups (match : groups)
         subst <- action hook
         rest  <- fire after hook
         return (before ++ subst ++ rest)
   where
-    (before, match, after, groups) = pattern hook =~ message :: (String, String, String, [String])
+    z@(before, match, after, groups) = message =~ pattern hook :: (String, String, String, [String])
 
 io :: Channel -> String -> MUD ()
 io ch message = addCommand (Send ch message)

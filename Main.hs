@@ -1,17 +1,23 @@
-module Example where
+module Main where
 
 import MUD
 import Control.Monad (liftM)
 import Connector
 
 main :: IO ()
-main = connect "darkover.isilm.com" 5000 (return ())
+main = connect "darkover.isilm.com" 5000 load
 
 load :: MUD ()
 load = do
-  mkSpellAliases
-  recordXpDelta
-  trackHp
+  --mkSpellAliases
+  --recordXpDelta
+  --trackHp
+  mkTrigger "Welcome to Darkover!" $ do
+    echo "hello!"
+    send ""
+    return ()
+  mkTriggerOnce "OOOOOOOOOOOOOO" $ do
+    echo "match"
   return ()
 
 mkSpellAliases = sequence $ map mkFull spells where
