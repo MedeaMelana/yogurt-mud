@@ -1,0 +1,2 @@
+default:
+	ghci Example
