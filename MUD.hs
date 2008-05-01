@@ -6,6 +6,7 @@ import Prelude hiding (lookup)
 import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
 import Control.Monad.Fix
 import Unsafe.Coerce
+import Text.Regex.Posix
 
 
 -- The MUD monad.
@@ -22,7 +23,7 @@ data State = State
 
 data Command = Send Channel String
 
-data Channel = Local | Remote
+data Channel = Local | Remote deriving (Eq, Show)
 
 instance Monad MUD where
   f >>= g = undefined
@@ -160,10 +161,27 @@ echor :: String -> MUD ()
 echor = io Remote
 
 trigger :: Channel -> String -> MUD String
-trigger = undefined
+trigger ch message = do
+    hs <- allHooks
+    case filter ok hs of
+      []       -> io ch message >> return message
+      (hook:_) -> do
+        subst <- fire message hook
+        io ch subst
+        return subst
+  where
+    ok hook = channel hook == ch && pattern hook =~ message
 
 fire :: String -> Hook -> MUD String
-fire = undefined
+fire message hook = do
+    if null match
+      then return before
+      else do
+        subst <- action hook
+        rest  <- fire after hook
+        return (before ++ subst ++ rest)
+  where
+    (before, match, after, groups) = pattern hook =~ message :: (String, String, String, [String])
 
 io :: Channel -> String -> MUD ()
 io ch message = addCommand (Send ch message)
