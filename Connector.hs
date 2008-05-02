@@ -32,7 +32,7 @@ executeCommands h state = do
 executeCommand :: Handle -> Command -> IO ()
 executeCommand h (Send ch msg) = do
   case ch of
-    Local  -> putStrLn msg
+    Local  -> putStr msg
     Remote -> do hPutStrLn h msg; hFlush h
 
 hGetImpatientLine :: Handle -> Int -> IO String
