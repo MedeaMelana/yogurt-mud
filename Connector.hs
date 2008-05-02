@@ -19,18 +19,18 @@ handleSide readLine vState ch conn = loop where
     line <- readLine
     oldState <- takeMVar vState
     let newState = fst $ runMUD (trigger ch line) oldState
-    newerState <- executeCommands conn newState
+    newerState <- sendMessages conn newState
     putMVar vState newerState
     loop
 
-executeCommands :: Handle -> MudState -> IO MudState
-executeCommands h state = do
-    sequence_ (map (executeCommand h) cs)
-    return (state { commands = [] })
-  where cs = commands state
+sendMessages :: Handle -> MudState -> IO MudState
+sendMessages h state = do
+    sequence_ (map (sendMessage h) cs)
+    return (state { messages = [] })
+  where cs = messages state
 
-executeCommand :: Handle -> Command -> IO ()
-executeCommand h (Send ch msg) = do
+sendMessage :: Handle -> Message -> IO ()
+sendMessage h (Send ch msg) = do
   case ch of
     Local  -> putStr msg
     Remote -> do hPutStrLn h msg; hFlush h
