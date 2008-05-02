@@ -12,9 +12,10 @@ import Debug.Trace (trace)
 
 -- The MUD monad.
 
-data MUD a = MUD (State -> (State, a))
+--type MUD = State State
+data MUD a = MUD (MudState -> (MudState, a))
 
-data State = State
+data MudState = MudState
   { hooks    :: IntMap Hook
   , vars     :: IntMap Value
   , supply   :: [Int]
@@ -26,7 +27,7 @@ data Command = Send Channel String deriving (Eq, Show)
 
 data Channel = Local | Remote deriving (Eq, Show)
 
-runMUD :: MUD a -> State -> (State, a)
+runMUD :: MUD a -> MudState -> (MudState, a)
 runMUD (MUD f) init = f init
 
 -- TODO: Use MonadState?
@@ -44,17 +45,17 @@ instance MonadFix MUD where
   mfix f = MUD $ \s ->
     let (MUD g) = (f . snd . g) s in g s
 
-updateState :: (State -> State) -> MUD ()
+updateState :: (MudState -> MudState) -> MUD ()
 updateState f = MUD $ \s -> (f s, ())
 
-queryState :: (State -> a) -> MUD a
+queryState :: (MudState -> a) -> MUD a
 queryState q = MUD $ \s -> (s, q s)
 
-initState :: State
-initState = State empty empty [0..] [] []
+initState :: MudState
+initState = MudState empty empty [0..] [] []
 
 -- Sadly, we cannot pass fields as function arguments.
--- updateField :: (State -> a) -> (a -> a) -> MUD ()
+-- updateField :: (MudState -> a) -> (a -> a) -> MUD ()
 -- updateField field f = updateState $ \s -> s { field = f (field s) }
 
 updateHooks :: (IntMap Hook -> IntMap Hook) -> MUD ()
