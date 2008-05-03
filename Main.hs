@@ -7,7 +7,7 @@ import Connector
 main :: IO ()
 main = connect "darkover.isilm.com" 5000 load
 
-load :: MUD ()
+load :: Mud ()
 load = do
   mkSpellAliases
   --recordXpDelta

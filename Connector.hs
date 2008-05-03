@@ -5,11 +5,11 @@ import System.IO
 import Network
 import Control.Concurrent
 
-connect :: String -> Int -> MUD () -> IO ()
+connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
   putStrLn $ "Connecting to " ++ host ++ " port " ++ show port ++ "..."
   conn <- connectTo host (PortNumber (fromIntegral port))  
-  vState <- newMVar (fst $ runMUD mud initState)
+  vState <- newMVar (fst $ runMud mud initState)
   forkIO $ handleSide (hGetImpatientLine conn 50) vState Local conn
   handleSide getLine vState Remote conn
 
@@ -18,7 +18,7 @@ handleSide readLine vState ch conn = loop where
   loop = do
     line <- readLine
     oldState <- takeMVar vState
-    let newState = fst $ runMUD (trigger ch line) oldState
+    let newState = fst $ runMud (trigger ch line) oldState
     newerState <- sendMessages conn newState
     putMVar vState newerState
     loop

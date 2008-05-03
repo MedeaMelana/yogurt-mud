@@ -10,10 +10,10 @@ import Text.Regex.Posix
 import Debug.Trace (trace)
 
 
--- The MUD monad.
+-- The Mud monad.
 
---type MUD = State State
-data MUD a = MUD (MudState -> (MudState, a))
+--type Mud = State State
+data Mud a = Mud (MudState -> (MudState, a))
 
 data MudState = MudState
   { hooks    :: IntMap Hook
@@ -30,44 +30,44 @@ data Result
 
 data Destination = Local | Remote deriving (Eq, Show)
 
-runMUD :: MUD a -> MudState -> (MudState, a)
-runMUD (MUD f) init = f init
+runMud :: Mud a -> MudState -> (MudState, a)
+runMud (Mud f) init = f init
 
 -- TODO: Use MonadState?
 
-instance Monad MUD where
-  (MUD f) >>= g = MUD $ \s ->
+instance Monad Mud where
+  (Mud f) >>= g = Mud $ \s ->
     let (t, x) = f s
-        MUD h  = g x
+        Mud h  = g x
      in h t
-  return x = MUD $ \s -> (s, x)
+  return x = Mud $ \s -> (s, x)
 
-instance MonadFix MUD where
+instance MonadFix Mud where
   -- What on earth have I written here? But it works!
-  -- mfix :: (a -> MUD a) -> MUD a
-  mfix f = MUD $ \s ->
-    let (MUD g) = (f . snd . g) s in g s
+  -- mfix :: (a -> Mud a) -> Mud a
+  mfix f = Mud $ \s ->
+    let (Mud g) = (f . snd . g) s in g s
 
-updateState :: (MudState -> MudState) -> MUD ()
-updateState f = MUD $ \s -> (f s, ())
+updateState :: (MudState -> MudState) -> Mud ()
+updateState f = Mud $ \s -> (f s, ())
 
-queryState :: (MudState -> a) -> MUD a
-queryState q = MUD $ \s -> (s, q s)
+queryState :: (MudState -> a) -> Mud a
+queryState q = Mud $ \s -> (s, q s)
 
 initState :: MudState
 initState = MudState empty empty [0..] [] []
 
 -- Sadly, we cannot pass fields as function arguments.
--- updateField :: (MudState -> a) -> (a -> a) -> MUD ()
+-- updateField :: (MudState -> a) -> (a -> a) -> Mud ()
 -- updateField field f = updateState $ \s -> s { field = f (field s) }
 
-updateHooks :: (IntMap Hook -> IntMap Hook) -> MUD ()
+updateHooks :: (IntMap Hook -> IntMap Hook) -> Mud ()
 updateHooks f = updateState $ \s -> s { hooks = f (hooks s) }
 
-updateVars :: (IntMap Value -> IntMap Value) -> MUD ()
+updateVars :: (IntMap Value -> IntMap Value) -> Mud ()
 updateVars f = updateState $ \s -> s { vars = f (vars s) }
 
-addResult :: Result -> MUD ()
+addResult :: Result -> Mud ()
 addResult r = updateState $ \s -> s { results = results s ++ [r] }
 
 
@@ -80,52 +80,52 @@ data Hook = Hook
   { hid     :: Int
   , channel :: Destination
   , pattern :: Pattern
-  , action  :: MUD String
+  , action  :: Mud String
   }
 
-mkId :: MUD Int
+mkId :: Mud Int
 mkId = do
   i <- queryState (head . supply)
   updateState $ \s -> s { supply = tail (supply s) }
   return i
 
-mkHook :: Destination -> Pattern -> MUD String -> MUD Hook
+mkHook :: Destination -> Pattern -> Mud String -> Mud Hook
 mkHook ch pat act = do
   hid <- mkId
   let hook = Hook hid ch pat act
   chHook hook
   return hook
 
-chHook :: Hook -> MUD ()
+chHook :: Hook -> Mud ()
 chHook hook = updateHooks $ insert (hid hook) hook
 
-rmHook :: Hook -> MUD ()
+rmHook :: Hook -> Mud ()
 rmHook hook = updateHooks $ delete (hid hook)
 
-allHooks :: MUD [Hook]
+allHooks :: Mud [Hook]
 allHooks = queryState (elems . hooks)
 
 
 -- Groups
 
-group :: Int -> MUD String
+group :: Int -> Mud String
 group n = queryState ((!! n) . groups)
 
-setGroups :: [String] -> MUD ()
+setGroups :: [String] -> Mud ()
 setGroups gs = updateState $ \s -> s { groups = gs }
 
 
 -- Hook derivatives
 
-mkTrigger :: Pattern -> MUD () -> MUD Hook
+mkTrigger :: Pattern -> Mud () -> Mud Hook
 mkTrigger pat act = mkHook Local pat (act >> group 0)
 
-mkTriggerOnce :: Pattern -> MUD () -> MUD Hook
+mkTriggerOnce :: Pattern -> Mud () -> Mud Hook
 mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
   hook <- mkTrigger pat (act >> rmHook hook)
   return hook
 
-mkAlias :: Pattern -> String -> MUD Hook
+mkAlias :: Pattern -> String -> Mud Hook
 mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| )") $ do
   suffix <- group 1
   return (subst ++ suffix)
@@ -136,44 +136,44 @@ mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| )") $ do
 data Var a = Var Int
 data Value = forall a. Value a
 
-mkVar :: a -> MUD (Var a)
+mkVar :: a -> Mud (Var a)
 mkVar val = do
   i <- mkId
   setVar (Var i) val
   return (Var i)
 
-setVar :: Var a -> a -> MUD ()
+setVar :: Var a -> a -> Mud ()
 setVar (Var i) val = updateVars $ insert i (Value val)
 
-readVar :: Var a -> MUD a
+readVar :: Var a -> Mud a
 readVar (Var i) = do
   varmap <- queryState vars
   Value val <- lookup i varmap
   return (unsafeCoerce val)
 
-updateVar :: Var a -> (a -> a) -> MUD ()
+updateVar :: Var a -> (a -> a) -> Mud ()
 updateVar var f = readVar var >>= setVar var . f
 
 
 -- I/O
 
 -- Applies hooks, then sends the result to the client.
-receive :: String -> MUD String
+receive :: String -> Mud String
 receive = trigger Local
 
 -- Applies hooks, then sends the result to the server.
-send :: String -> MUD String
+send :: String -> Mud String
 send = trigger Remote
 
 -- Like receive, but does not trigger hooks.
-echo :: String -> MUD ()
+echo :: String -> Mud ()
 echo = io Local
 
 -- Like send, but does not trigger hooks.
-echor :: String -> MUD ()
+echor :: String -> Mud ()
 echor = io Remote
 
-trigger :: Destination -> String -> MUD String
+trigger :: Destination -> String -> Mud String
 trigger ch message = do
     hs <- allHooks
     case filter ok hs of
@@ -185,7 +185,7 @@ trigger ch message = do
   where
     ok hook = channel hook == ch && message =~ pattern hook
 
-fire :: String -> Hook -> MUD String
+fire :: String -> Hook -> Mud String
 fire message hook = do
     if null match
       then return before
@@ -197,5 +197,5 @@ fire message hook = do
   where
     z@(before, match, after, groups) = message =~ pattern hook :: (String, String, String, [String])
 
-io :: Destination -> String -> MUD ()
+io :: Destination -> String -> Mud ()
 io ch message = addResult (Send ch message)
