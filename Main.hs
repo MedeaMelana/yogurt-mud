@@ -1,8 +1,8 @@
 module Main where
 
-import Mud
+import Core
+import Engine
 import Control.Monad (liftM)
-import Connector
 
 main :: IO ()
 main = connect "darkover.isilm.com" 5000 load
