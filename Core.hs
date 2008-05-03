@@ -1,6 +1,14 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
-module Core where
+module Core
+  ( Mud, MudState, Hook(..), Destination(..), Pattern, Result(..)  -- types
+  , runMud, emptyMud
+  , mkHook, chHook, rmHook, allHooks   -- hooks
+  , triggeredHook, matchedLine, group  -- triggered hooks
+  , mkVar, setVar, readVar, modifyVar  -- variables
+  , trigger, io, flushResults
+  , runIO
+  ) where
 
 import Prelude hiding (lookup)
 import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
@@ -11,9 +19,10 @@ import Debug.Trace (trace)
 import Ansi
 
 
--- The Mud monad.
+-- Types.
 
---type Mud = State State
+-- TODO: Use MonadState?
+-- type Mud = State MudState
 data Mud a = Mud (MudState -> (MudState, a))
 
 data MudState = MudState
@@ -23,19 +32,6 @@ data MudState = MudState
   , matchInfo :: Maybe MatchInfo
   , results   :: [Result]
   }
-
-type MatchInfo = (Hook, String, [String]) -- Triggered hook; matched input line; regex groups.
-
-data Result
-  = Send Destination String  -- no implicit newlines!
-  deriving (Eq, Show)
-
-data Destination = Local | Remote deriving (Eq, Show)
-
-runMud :: Mud a -> MudState -> (MudState, a)
-runMud (Mud f) init = f init
-
--- TODO: Use MonadState?
 
 instance Monad Mud where
   (Mud f) >>= g = Mud $ \s ->
@@ -50,18 +46,52 @@ instance MonadFix Mud where
   mfix f = Mud $ \s ->
     let (Mud g) = (f . snd . g) s in g s
 
+
+-- Hooks.
+data Hook = Hook
+  { hid         :: Int
+  , destination :: Destination
+  , pattern     :: Pattern
+  , action      :: Mud ()
+  }
+data Destination = Local | Remote deriving (Eq, Show)
+type Pattern = String
+type MatchInfo = (Hook, String, [String]) -- Triggered hook; matched input line; regex groups.
+
+instance Show Hook where
+  show (Hook hid dest pat act) = "Hook " ++ show hid ++ " " ++ show dest ++ " [" ++ pat ++ "]"
+
+
+-- Variables.
+data Var a = Var Int
+data Value = forall a. Value a
+
+-- Results.
+data Result
+  = Send Destination String  -- no implicit newlines!
+  | RunIO (IO ())
+  deriving Show
+
+instance Show (IO a) where
+  show io = "<<io>>"
+
+
+-- Running, manipulating and querying state.
+
+runMud :: Mud a -> MudState -> (MudState, a)
+runMud (Mud f) init = f init
+
+emptyMud :: MudState
+emptyMud = MudState empty empty [0..] Nothing []
+
 updateState :: (MudState -> MudState) -> Mud ()
 updateState f = Mud $ \s -> (f s, ())
 
 queryState :: (MudState -> a) -> Mud a
 queryState q = Mud $ \s -> (s, q s)
 
-initState :: MudState
-initState = MudState empty empty [0..] Nothing []
 
--- Sadly, we cannot pass fields as function arguments.
--- updateField :: (MudState -> a) -> (a -> a) -> Mud ()
--- updateField field f = updateState $ \s -> s { field = f (field s) }
+-- Helper functions for querying and manipulating state.
 
 updateHooks :: (IntMap Hook -> IntMap Hook) -> Mud ()
 updateHooks f = updateState $ \s -> s { hooks = f (hooks s) }
@@ -72,19 +102,17 @@ updateVars f = updateState $ \s -> s { vars = f (vars s) }
 addResult :: Result -> Mud ()
 addResult r = updateState $ \s -> s { results = results s ++ [r] }
 
+flushResults :: Mud [Result]
+flushResults = do
+  rs <- queryState results
+  updateState $ \s -> s { results = [] }
+  return rs
+
+runIO :: IO () -> Mud ()
+runIO io = addResult (RunIO io)
+
 
 -- Hooks
-
-type Pattern = String
-data Hook = Hook
-  { hid         :: Int
-  , destination :: Destination
-  , pattern     :: Pattern
-  , action      :: Mud ()
-  }
-
-instance Show Hook where
-  show (Hook hid dest pat act) = "Hook " ++ show hid ++ " " ++ show dest ++ " [" ++ pat ++ "]"
 
 mkId :: Mud Int
 mkId = do
@@ -121,21 +149,17 @@ getMatchInfo = do
     Nothing  -> fail "No match is available."
     Just mi' -> return mi'
 
+triggeredHook :: Mud Hook
+triggeredHook = getMatchInfo >>= return . (\(x,_,_) -> x)
+
+matchedLine :: Mud String
+matchedLine = getMatchInfo >>= return . (\(_,x,_) -> x)
+
 group :: Int -> Mud String
 group n = getMatchInfo >>= (return . (!! n) . (\(_,_,x) -> x))
 
-match :: Mud String
-match = getMatchInfo >>= return . (\(_,x,_) -> x)
-
-currentHook :: Mud Hook
-currentHook = getMatchInfo >>= return . (\(x,_,_) -> x)
-
-
 
 -- Variables
-
-data Var a = Var Int
-data Value = forall a. Value a
 
 mkVar :: a -> Mud (Var a)
 mkVar val = do
@@ -152,8 +176,8 @@ readVar (Var i) = do
   Value val <- lookup i varmap
   return (unsafeCoerce val)
 
-updateVar :: Var a -> (a -> a) -> Mud ()
-updateVar var f = readVar var >>= setVar var . f
+modifyVar :: Var a -> (a -> a) -> Mud ()
+modifyVar var f = readVar var >>= setVar var . f
 
 
 -- Matching of hooks
@@ -179,24 +203,6 @@ fire message hook = do
   where
     (before, match, after, groups) = rmAnsi message =~ pattern hook :: (String, String, String, [String])
 
+-- Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
 io ch message = addResult (Send ch message)
-
-
--- Some convenience methods.
-
--- Applies appropriate hooks. If no hooks were triggered, the result is sent to the client.
-receive :: String -> Mud ()
-receive = trigger Local
-
--- Applies appropriate hooks. If no hooks were triggered, the result is sent to the server.
-send :: String -> Mud ()
-send m = trigger Remote (m ++ "\n")
-
--- Immediately sends the result to the client, without triggering hooks.
-echo :: String -> Mud ()
-echo m = io Local (m ++ "\n")
-
--- Immediately sends the result to the server, without triggering hooks.
-echor :: String -> Mud ()
-echor m = io Remote (m ++ "\n")

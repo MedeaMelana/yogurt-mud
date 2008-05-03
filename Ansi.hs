@@ -9,4 +9,3 @@ rmAnsi ab = a ++ (rmAnsi . tail' . dropWhile (/= 'm')) b
 tail' :: [a] -> [a]
 tail' [] = []
 tail' xs = tail xs
-

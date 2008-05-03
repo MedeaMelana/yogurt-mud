@@ -9,37 +9,54 @@ connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
   -- Connect.
   putStrLn $ "Connecting to " ++ host ++ " port " ++ show port ++ "..."
-  conn <- connectTo host (PortNumber (fromIntegral port))
+  h <- connectTo host (PortNumber (fromIntegral port))
 
   -- Create shared mud state.
-  vState <- newMVar (fst $ runMud mud initState)
+  vState <- newMVar (fst $ runMud mud emptyMud)
 
   -- Start child threads.
-  forkIO $ handleSide (hGetImpatientLine conn 50) vState Local conn
-  handleSide (fmap (++ "\n") getLine) vState Remote conn
+  let localInput  = maybeInput $ fmap (++ "\n") getLine
+  let remoteInput = maybeInput $ hGetImpatientLine h 50
+  let handleS = handleSource vState (executeResults h)
+  forkIO $ handleS localInput Remote
+  handleS remoteInput Local
 
-handleSide :: IO String -> MVar MudState -> Destination -> Handle -> IO ()
-handleSide readLine vState ch conn = loop where
+-- Takes an input method and catches errors, returning results in the Maybe monad.
+maybeInput :: IO String -> IO (Maybe String)
+maybeInput input = fmap Just input `catch` const (return Nothing)
+
+-- Watches an input source and updates the mud state whenever a new message arrives.
+handleSource :: MVar MudState ->        -- shared mud state
+                ([Result] -> IO ()) ->  -- execution of results
+                IO (Maybe String) ->    -- input source
+                Destination ->          -- target destination
+                IO ()
+handleSource vState exec input dest = loop where
   loop = do
-    line <- readLine
-    oldState <- takeMVar vState
-    let newState = fst $ runMud (trigger ch line) oldState
-    newerState <- sendMessages conn newState
-    putMVar vState newerState
-    loop
+    mmessage <- input
+    case mmessage of
+      Nothing -> return ()
+      Just message -> do
+        oldState <- takeMVar vState
+        let (newState, results) = runMud (trigger dest message >> flushResults) oldState
+        exec results
+        putMVar vState newState
+        loop
 
-sendMessages :: Handle -> MudState -> IO MudState
-sendMessages h state = do
-    sequence_ (map (sendMessage h) cs)
-    return (state { results = [] })
-  where cs = results state
+executeResults :: Handle -> [Result] -> IO ()
+executeResults h rs = do
+    sequence_ (map (executeResult h) rs)
 
-sendMessage :: Handle -> Result -> IO ()
-sendMessage h r@(Send ch msg) = do
-  debug (show r)
-  case ch of
-    Local  -> putStr msg
-    Remote -> do hPutStr h msg; hFlush h
+executeResult :: Handle -> Result -> IO ()
+executeResult h res = do
+  debug (show res)
+  case res of
+    Send ch msg ->
+      case ch of
+        Local  -> putStr msg
+        Remote -> do hPutStr h msg; hFlush h
+    RunIO io ->
+      io
 
 hGetImpatientLine :: Handle -> Int -> IO String
 hGetImpatientLine h patience = rec where
