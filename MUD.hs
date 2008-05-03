@@ -20,10 +20,13 @@ data MudState = MudState
   , vars     :: IntMap Value
   , supply   :: [Int]
   , groups   :: [String]
-  , messages :: [Message]
+  , results  :: [Result]
   }
 
-data Message = Send Channel String deriving (Eq, Show)
+data Result
+  = Send Channel String
+  | Error String
+  deriving (Eq, Show)
 
 data Channel = Local | Remote deriving (Eq, Show)
 
@@ -64,8 +67,8 @@ updateHooks f = updateState $ \s -> s { hooks = f (hooks s) }
 updateVars :: (IntMap Value -> IntMap Value) -> MUD ()
 updateVars f = updateState $ \s -> s { vars = f (vars s) }
 
-addMessage :: Message -> MUD ()
-addMessage c = updateState $ \s -> s { messages = messages s ++ [c] }
+addResult :: Result -> MUD ()
+addResult r = updateState $ \s -> s { results = results s ++ [r] }
 
 
 
@@ -195,4 +198,4 @@ fire message hook = do
     z@(before, match, after, groups) = message =~ pattern hook :: (String, String, String, [String])
 
 io :: Channel -> String -> MUD ()
-io ch message = addMessage (Send ch message)
+io ch message = addResult (Send ch message)

@@ -26,10 +26,10 @@ handleSide readLine vState ch conn = loop where
 sendMessages :: Handle -> MudState -> IO MudState
 sendMessages h state = do
     sequence_ (map (sendMessage h) cs)
-    return (state { messages = [] })
-  where cs = messages state
+    return (state { results = [] })
+  where cs = results state
 
-sendMessage :: Handle -> Message -> IO ()
+sendMessage :: Handle -> Result -> IO ()
 sendMessage h (Send ch msg) = do
   case ch of
     Local  -> putStr msg
