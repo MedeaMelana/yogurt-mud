@@ -16,16 +16,17 @@ import Debug.Trace (trace)
 data Mud a = Mud (MudState -> (MudState, a))
 
 data MudState = MudState
-  { hooks    :: IntMap Hook
-  , vars     :: IntMap Value
-  , supply   :: [Int]
-  , groups   :: [String]
-  , results  :: [Result]
+  { hooks     :: IntMap Hook
+  , vars      :: IntMap Value
+  , supply    :: [Int]
+  , matchInfo :: Maybe MatchInfo
+  , results   :: [Result]
   }
 
+type MatchInfo = (String, [String]) -- Matched input line; regex groups.
+
 data Result
-  = Send Destination String
-  | Error String
+  = Send Destination String  -- no implicit newlines!
   deriving (Eq, Show)
 
 data Destination = Local | Remote deriving (Eq, Show)
@@ -55,7 +56,7 @@ queryState :: (MudState -> a) -> Mud a
 queryState q = Mud $ \s -> (s, q s)
 
 initState :: MudState
-initState = MudState empty empty [0..] [] []
+initState = MudState empty empty [0..] Nothing []
 
 -- Sadly, we cannot pass fields as function arguments.
 -- updateField :: (MudState -> a) -> (a -> a) -> Mud ()
@@ -71,17 +72,18 @@ addResult :: Result -> Mud ()
 addResult r = updateState $ \s -> s { results = results s ++ [r] }
 
 
-
-
 -- Hooks
 
 type Pattern = String
 data Hook = Hook
-  { hid     :: Int
-  , channel :: Destination
-  , pattern :: Pattern
-  , action  :: Mud String
+  { hid         :: Int
+  , destination :: Destination
+  , pattern     :: Pattern
+  , action      :: Mud ()
   }
+
+instance Show Hook where
+  show (Hook hid dest pat act) = "Hook " ++ show hid ++ " " ++ show dest ++ " [" ++ pat ++ "]"
 
 mkId :: Mud Int
 mkId = do
@@ -89,10 +91,10 @@ mkId = do
   updateState $ \s -> s { supply = tail (supply s) }
   return i
 
-mkHook :: Destination -> Pattern -> Mud String -> Mud Hook
-mkHook ch pat act = do
+mkHook :: Destination -> Pattern -> Mud () -> Mud Hook
+mkHook dest pat act = do
   hid <- mkId
-  let hook = Hook hid ch pat act
+  let hook = Hook hid dest pat act
   chHook hook
   return hook
 
@@ -100,25 +102,35 @@ chHook :: Hook -> Mud ()
 chHook hook = updateHooks $ insert (hid hook) hook
 
 rmHook :: Hook -> Mud ()
-rmHook hook = updateHooks $ delete (hid hook)
+rmHook = updateHooks . delete . hid
 
 allHooks :: Mud [Hook]
 allHooks = queryState (elems . hooks)
 
 
--- Groups
+-- MatchInfo
+
+setMatchInfo :: Maybe MatchInfo -> Mud ()
+setMatchInfo mi = updateState $ \s -> s { matchInfo = mi }
+
+getMatchInfo :: Mud MatchInfo
+getMatchInfo = do
+  mi <- queryState matchInfo
+  case mi of
+    Nothing  -> fail "No match is available."
+    Just mi' -> return mi'
 
 group :: Int -> Mud String
-group n = queryState ((!! n) . groups)
+group n = getMatchInfo >>= (return . (!! n) . snd)
 
-setGroups :: [String] -> Mud ()
-setGroups gs = updateState $ \s -> s { groups = gs }
+match :: Mud String
+match = getMatchInfo >>= return . fst
 
 
 -- Hook derivatives
 
 mkTrigger :: Pattern -> Mud () -> Mud Hook
-mkTrigger pat act = mkHook Local pat (act >> group 0)
+mkTrigger pat act = mkHook Local pat (act >> match >>= echo)
 
 mkTriggerOnce :: Pattern -> Mud () -> Mud Hook
 mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
@@ -126,9 +138,9 @@ mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
   return hook
 
 mkAlias :: Pattern -> String -> Mud Hook
-mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| )") $ do
+mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
   suffix <- group 1
-  return (subst ++ suffix)
+  echor (subst ++ suffix)
 
 
 -- Variables
@@ -155,47 +167,57 @@ updateVar :: Var a -> (a -> a) -> Mud ()
 updateVar var f = readVar var >>= setVar var . f
 
 
--- I/O
+-- Matching of hooks
 
--- Applies hooks, then sends the result to the client.
-receive :: String -> Mud String
-receive = trigger Local
+-- Removes ANSI sequences from a string.
+rmAnsi :: String -> String
+rmAnsi [] = []
+rmAnsi ab = a ++ (rmAnsi . tail' . dropWhile (/= 'm')) b
+  where (a, b) = break (== '\ESC') ab
 
--- Applies hooks, then sends the result to the server.
-send :: String -> Mud String
-send = trigger Remote
+tail' :: [a] -> [a]
+tail' [] = []
+tail' xs = tail xs
 
--- Like receive, but does not trigger hooks.
-echo :: String -> Mud ()
-echo = io Local
-
--- Like send, but does not trigger hooks.
-echor :: String -> Mud ()
-echor = io Remote
-
-trigger :: Destination -> String -> Mud String
-trigger ch message = do
+-- Looks for a hook to match the message. If one is found, fire is
+-- called; otherwise, the message is passed on to the destination.
+trigger :: Destination -> String -> Mud ()
+trigger dest message = do
     hs <- allHooks
     case filter ok hs of
-      []       -> io ch message >> return message
-      (hook:_) -> do
-        subst <- fire message hook
-        io ch subst
-        return subst
+      []       -> io dest message
+      (hook:_) -> fire message hook
   where
-    ok hook = channel hook == ch && message =~ pattern hook
+    ok hook = destination hook == dest && rmAnsi message =~ pattern hook
 
-fire :: String -> Hook -> Mud String
+-- Executes the hook's action based on the matching message.
+fire :: String -> Hook -> Mud ()
 fire message hook = do
-    if null match
-      then return before
-      else do
-        setGroups (match : groups)
-        subst <- action hook
-        rest  <- fire after hook
-        return (before ++ subst ++ rest)
+    oldMatchInfo <- queryState matchInfo
+    setMatchInfo $ Just (message, match : groups)
+    action hook
+    setMatchInfo oldMatchInfo
   where
-    z@(before, match, after, groups) = message =~ pattern hook :: (String, String, String, [String])
+    (before, match, after, groups) = rmAnsi message =~ pattern hook :: (String, String, String, [String])
 
 io :: Destination -> String -> Mud ()
 io ch message = addResult (Send ch message)
+
+
+-- Some convenience methods.
+
+-- Applies appropriate hooks. If no hooks were triggered, the result is sent to the client.
+receive :: String -> Mud ()
+receive = trigger Local
+
+-- Applies appropriate hooks. If no hooks were triggered, the result is sent to the server.
+send :: String -> Mud ()
+send m = trigger Remote (m ++ "\n")
+
+-- Immediately sends the result to the client, without triggering hooks.
+echo :: String -> Mud ()
+echo m = io Local (m ++ "\n")
+
+-- Immediately sends the result to the server, without triggering hooks.
+echor :: String -> Mud ()
+echor m = io Remote (m ++ "\n")

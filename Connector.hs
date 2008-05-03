@@ -11,7 +11,7 @@ connect host port mud = do
   conn <- connectTo host (PortNumber (fromIntegral port))  
   vState <- newMVar (fst $ runMud mud initState)
   forkIO $ handleSide (hGetImpatientLine conn 50) vState Local conn
-  handleSide getLine vState Remote conn
+  handleSide (fmap (++ "\n") getLine) vState Remote conn
 
 handleSide :: IO String -> MVar MudState -> Destination -> Handle -> IO ()
 handleSide readLine vState ch conn = loop where
@@ -30,10 +30,11 @@ sendMessages h state = do
   where cs = results state
 
 sendMessage :: Handle -> Result -> IO ()
-sendMessage h (Send ch msg) = do
+sendMessage h r@(Send ch msg) = do
+  debug (show r)
   case ch of
     Local  -> putStr msg
-    Remote -> do hPutStrLn h msg; hFlush h
+    Remote -> do hPutStr h msg; hFlush h
 
 hGetImpatientLine :: Handle -> Int -> IO String
 hGetImpatientLine h patience = rec where
@@ -46,3 +47,6 @@ hGetImpatientLine h patience = rec where
         if b
           then rec >>= return . (c:)
           else return [c]
+
+debug :: String -> IO ()
+debug = appendFile "debug.log" . (++ "\n")

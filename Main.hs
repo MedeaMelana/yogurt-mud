@@ -12,20 +12,11 @@ load = do
   mkSpellAliases
   --recordXpDelta
   trackHp
-{-  mkTrigger "Welcome to Darkover!" $ do
-    echo "hello!"
-    send ""
-    send "medea"
-    send "rildrikjan11"
-    return ()-}
-  aap <- mkVar 0
-  mkHook Remote "aap" $ do
-    updateVar aap (+ 1)
-    a <- readVar aap
-    echo (show a)
-    return "aap"
-  mkTrigger "OOOOOOOOOOOOOO" $ do
-    echo "match"
+  
+  mkHook Remote "^lsHooks$" $ do
+    hs <- allHooks
+    sequence_ $ map (echo . show) hs
+  
   return ()
 
 mkSpellAliases = sequence $ map mkFull spells where
@@ -55,10 +46,8 @@ trackHp = do
   hpMax <- mkVar 0
   hpCur <- mkVar 0
   mkTrigger "^< (.*)hp (.*)m (.*)mv >" $ do
-    echo "matched prompt"
     newHpCur <- liftM read (group 1)
     setVar hpCur newHpCur
   mkHook Remote "^hp$" $ do
     hp <- readVar hpCur
     echo ("current hp: " ++ show hp)
-    return ""
