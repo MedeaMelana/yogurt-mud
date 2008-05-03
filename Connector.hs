@@ -1,6 +1,6 @@
 module Connector where
 
-import MUD
+import Mud
 import System.IO
 import Network
 import Control.Concurrent

@@ -1,6 +1,6 @@
 module Main where
 
-import MUD
+import Mud
 import Control.Monad (liftM)
 import Connector
 
@@ -9,14 +9,22 @@ main = connect "darkover.isilm.com" 5000 load
 
 load :: MUD ()
 load = do
-  --mkSpellAliases
+  mkSpellAliases
   --recordXpDelta
-  --trackHp
-  mkTrigger "Welcome to Darkover!" $ do
+  trackHp
+{-  mkTrigger "Welcome to Darkover!" $ do
     echo "hello!"
     send ""
-    return ()
-  mkTriggerOnce "OOOOOOOOOOOOOO" $ do
+    send "medea"
+    send "rildrikjan11"
+    return ()-}
+  aap <- mkVar 0
+  mkHook Remote "aap" $ do
+    updateVar aap (+ 1)
+    a <- readVar aap
+    echo (show a)
+    return "aap"
+  mkTrigger "OOOOOOOOOOOOOO" $ do
     echo "match"
   return ()
 
@@ -47,5 +55,10 @@ trackHp = do
   hpMax <- mkVar 0
   hpCur <- mkVar 0
   mkTrigger "^< (.*)hp (.*)m (.*)mv >" $ do
+    echo "matched prompt"
     newHpCur <- liftM read (group 1)
     setVar hpCur newHpCur
+  mkHook Remote "^hp$" $ do
+    hp <- readVar hpCur
+    echo ("current hp: " ++ show hp)
+    return ""

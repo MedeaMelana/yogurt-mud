@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
-module MUD where
+module Mud where
 
 import Prelude hiding (lookup)
 import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
