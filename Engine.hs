@@ -7,9 +7,14 @@ import Control.Concurrent
 
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
+  -- Connect.
   putStrLn $ "Connecting to " ++ host ++ " port " ++ show port ++ "..."
-  conn <- connectTo host (PortNumber (fromIntegral port))  
+  conn <- connectTo host (PortNumber (fromIntegral port))
+
+  -- Create shared mud state.
   vState <- newMVar (fst $ runMud mud initState)
+
+  -- Start child threads.
   forkIO $ handleSide (hGetImpatientLine conn 50) vState Local conn
   handleSide (fmap (++ "\n") getLine) vState Remote conn
 

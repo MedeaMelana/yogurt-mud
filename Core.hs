@@ -8,6 +8,7 @@ import Control.Monad.Fix
 import Unsafe.Coerce
 import Text.Regex.Posix
 import Debug.Trace (trace)
+import Ansi
 
 
 -- The Mud monad.
@@ -23,7 +24,7 @@ data MudState = MudState
   , results   :: [Result]
   }
 
-type MatchInfo = (String, [String]) -- Matched input line; regex groups.
+type MatchInfo = (Hook, String, [String]) -- Triggered hook; matched input line; regex groups.
 
 data Result
   = Send Destination String  -- no implicit newlines!
@@ -121,26 +122,14 @@ getMatchInfo = do
     Just mi' -> return mi'
 
 group :: Int -> Mud String
-group n = getMatchInfo >>= (return . (!! n) . snd)
+group n = getMatchInfo >>= (return . (!! n) . (\(_,_,x) -> x))
 
 match :: Mud String
-match = getMatchInfo >>= return . fst
+match = getMatchInfo >>= return . (\(_,x,_) -> x)
 
+currentHook :: Mud Hook
+currentHook = getMatchInfo >>= return . (\(x,_,_) -> x)
 
--- Hook derivatives
-
-mkTrigger :: Pattern -> Mud () -> Mud Hook
-mkTrigger pat act = mkHook Local pat (act >> match >>= echo)
-
-mkTriggerOnce :: Pattern -> Mud () -> Mud Hook
-mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
-  hook <- mkTrigger pat (act >> rmHook hook)
-  return hook
-
-mkAlias :: Pattern -> String -> Mud Hook
-mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
-  suffix <- group 1
-  echor (subst ++ suffix)
 
 
 -- Variables
@@ -169,16 +158,6 @@ updateVar var f = readVar var >>= setVar var . f
 
 -- Matching of hooks
 
--- Removes ANSI sequences from a string.
-rmAnsi :: String -> String
-rmAnsi [] = []
-rmAnsi ab = a ++ (rmAnsi . tail' . dropWhile (/= 'm')) b
-  where (a, b) = break (== '\ESC') ab
-
-tail' :: [a] -> [a]
-tail' [] = []
-tail' xs = tail xs
-
 -- Looks for a hook to match the message. If one is found, fire is
 -- called; otherwise, the message is passed on to the destination.
 trigger :: Destination -> String -> Mud ()
@@ -194,7 +173,7 @@ trigger dest message = do
 fire :: String -> Hook -> Mud ()
 fire message hook = do
     oldMatchInfo <- queryState matchInfo
-    setMatchInfo $ Just (message, match : groups)
+    setMatchInfo $ Just (hook, message, match : groups)
     action hook
     setMatchInfo oldMatchInfo
   where

@@ -1,2 +1,2 @@
 default:
-	ghci Main
+	ghci NewMoon
