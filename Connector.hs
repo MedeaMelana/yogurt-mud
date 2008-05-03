@@ -13,7 +13,7 @@ connect host port mud = do
   forkIO $ handleSide (hGetImpatientLine conn 50) vState Local conn
   handleSide getLine vState Remote conn
 
-handleSide :: IO String -> MVar MudState -> Channel -> Handle -> IO ()
+handleSide :: IO String -> MVar MudState -> Destination -> Handle -> IO ()
 handleSide readLine vState ch conn = loop where
   loop = do
     line <- readLine

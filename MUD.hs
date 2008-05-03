@@ -24,11 +24,11 @@ data MudState = MudState
   }
 
 data Result
-  = Send Channel String
+  = Send Destination String
   | Error String
   deriving (Eq, Show)
 
-data Channel = Local | Remote deriving (Eq, Show)
+data Destination = Local | Remote deriving (Eq, Show)
 
 runMUD :: MUD a -> MudState -> (MudState, a)
 runMUD (MUD f) init = f init
@@ -78,7 +78,7 @@ addResult r = updateState $ \s -> s { results = results s ++ [r] }
 type Pattern = String
 data Hook = Hook
   { hid     :: Int
-  , channel :: Channel
+  , channel :: Destination
   , pattern :: Pattern
   , action  :: MUD String
   }
@@ -89,7 +89,7 @@ mkId = do
   updateState $ \s -> s { supply = tail (supply s) }
   return i
 
-mkHook :: Channel -> Pattern -> MUD String -> MUD Hook
+mkHook :: Destination -> Pattern -> MUD String -> MUD Hook
 mkHook ch pat act = do
   hid <- mkId
   let hook = Hook hid ch pat act
@@ -173,7 +173,7 @@ echo = io Local
 echor :: String -> MUD ()
 echor = io Remote
 
-trigger :: Channel -> String -> MUD String
+trigger :: Destination -> String -> MUD String
 trigger ch message = do
     hs <- allHooks
     case filter ok hs of
@@ -197,5 +197,5 @@ fire message hook = do
   where
     z@(before, match, after, groups) = message =~ pattern hook :: (String, String, String, [String])
 
-io :: Channel -> String -> MUD ()
+io :: Destination -> String -> MUD ()
 io ch message = addResult (Send ch message)
