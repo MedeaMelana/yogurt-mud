@@ -12,7 +12,6 @@ writeToTTY msg = do
   -- Empty buffer.
   buf <- getLineBuffer
   pt  <- getPoint
-  savePrompt
   setLineBuffer ""
   setPoint 0  -- AAARGH
   redisplay
@@ -26,7 +25,6 @@ writeToTTY msg = do
   message prompt
   insertText buf
   setPoint pt
-  restorePrompt
   redisplay
 
 -- Splits a message x in two submessages y and z such that:
