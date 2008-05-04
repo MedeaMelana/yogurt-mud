@@ -5,6 +5,10 @@ import System.IO
 import Network
 import Control.Concurrent
 import Control.Monad.State
+import System.Console.Readline
+import Data.Maybe (isJust)
+import Data.List (elemIndices)
+import WriteToTTY
 
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
@@ -16,11 +20,23 @@ connect host port mud = do
   vState <- newMVar (execState mud emptyMud)
 
   -- Start child threads.
-  let localInput  = maybeInput $ fmap (++ "\n") getLine
-  let remoteInput = maybeInput $ hGetImpatientLine h 50
   let handleS = handleSource vState (executeResults h)
   forkIO $ handleS localInput Remote
-  handleS remoteInput Local
+  handleS (remoteInput h) Local
+
+localInput :: IO (Maybe String)
+localInput = do
+  maybeLine <- readline ""
+  case maybeLine of
+    Nothing   -> return Nothing
+    Just line -> do
+      addHistory line
+      return (Just $ line ++ "\n")
+
+remoteInput :: Handle -> IO (Maybe String)
+remoteInput h = do
+  input <- maybeInput (hGetImpatientLine h 50)
+  return input
 
 -- Takes an input method and catches errors, returning results in the Maybe monad.
 maybeInput :: IO String -> IO (Maybe String)
@@ -54,7 +70,7 @@ executeResult h res = do
   case res of
     Send ch msg ->
       case ch of
-        Local  -> putStr msg
+        Local  -> writeToTTY msg
         Remote -> do hPutStr h msg; hFlush h
     RunIO io ->
       io

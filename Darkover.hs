@@ -1,6 +1,6 @@
 module Main where
 
-import Core
+import Utils
 import Engine
 import Control.Monad (liftM)
 
