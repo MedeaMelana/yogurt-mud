@@ -2,7 +2,7 @@
 
 module Core
   ( Mud, MudState, Hook(..), Destination(..), Pattern, Result(..)  -- types
-  , runMud, emptyMud
+  , emptyMud
   , mkHook, chHook, rmHook, allHooks   -- hooks
   , triggeredHook, matchedLine, group  -- triggered hooks
   , mkVar, setVar, readVar, modifyVar  -- variables
@@ -17,13 +17,12 @@ import Unsafe.Coerce
 import Text.Regex.Posix
 import Debug.Trace (trace)
 import Ansi
+import Control.Monad.State
 
 
 -- Types.
 
--- TODO: Use MonadState?
--- type Mud = State MudState
-data Mud a = Mud (MudState -> (MudState, a))
+type Mud = State MudState
 
 data MudState = MudState
   { hooks     :: IntMap Hook
@@ -32,19 +31,6 @@ data MudState = MudState
   , matchInfo :: Maybe MatchInfo
   , results   :: [Result]
   }
-
-instance Monad Mud where
-  (Mud f) >>= g = Mud $ \s ->
-    let (t, x) = f s
-        Mud h  = g x
-     in h t
-  return x = Mud $ \s -> (s, x)
-
-instance MonadFix Mud where
-  -- What on earth have I written here? But it works!
-  -- mfix :: (a -> Mud a) -> Mud a
-  mfix f = Mud $ \s ->
-    let (Mud g) = (f . snd . g) s in g s
 
 
 -- Hooks.
@@ -76,36 +62,27 @@ instance Show (IO a) where
   show io = "<<io>>"
 
 
--- Running, manipulating and querying state.
-
-runMud :: Mud a -> MudState -> (MudState, a)
-runMud (Mud f) init = f init
+-- The initial state.
 
 emptyMud :: MudState
 emptyMud = MudState empty empty [0..] Nothing []
-
-updateState :: (MudState -> MudState) -> Mud ()
-updateState f = Mud $ \s -> (f s, ())
-
-queryState :: (MudState -> a) -> Mud a
-queryState q = Mud $ \s -> (s, q s)
 
 
 -- Helper functions for querying and manipulating state.
 
 updateHooks :: (IntMap Hook -> IntMap Hook) -> Mud ()
-updateHooks f = updateState $ \s -> s { hooks = f (hooks s) }
+updateHooks f = modify $ \s -> s { hooks = f (hooks s) }
 
 updateVars :: (IntMap Value -> IntMap Value) -> Mud ()
-updateVars f = updateState $ \s -> s { vars = f (vars s) }
+updateVars f = modify $ \s -> s { vars = f (vars s) }
 
 addResult :: Result -> Mud ()
-addResult r = updateState $ \s -> s { results = results s ++ [r] }
+addResult r = modify $ \s -> s { results = results s ++ [r] }
 
 flushResults :: Mud [Result]
 flushResults = do
-  rs <- queryState results
-  updateState $ \s -> s { results = [] }
+  rs <- gets results
+  modify $ \s -> s { results = [] }
   return rs
 
 runIO :: IO () -> Mud ()
@@ -116,8 +93,8 @@ runIO io = addResult (RunIO io)
 
 mkId :: Mud Int
 mkId = do
-  i <- queryState (head . supply)
-  updateState $ \s -> s { supply = tail (supply s) }
+  i <- gets (head . supply)
+  modify $ \s -> s { supply = tail (supply s) }
   return i
 
 mkHook :: Destination -> Pattern -> Mud () -> Mud Hook
@@ -134,17 +111,17 @@ rmHook :: Hook -> Mud ()
 rmHook = updateHooks . delete . hid
 
 allHooks :: Mud [Hook]
-allHooks = queryState (elems . hooks)
+allHooks = gets (elems . hooks)
 
 
 -- MatchInfo
 
 setMatchInfo :: Maybe MatchInfo -> Mud ()
-setMatchInfo mi = updateState $ \s -> s { matchInfo = mi }
+setMatchInfo mi = modify $ \s -> s { matchInfo = mi }
 
 getMatchInfo :: Mud MatchInfo
 getMatchInfo = do
-  mi <- queryState matchInfo
+  mi <- gets matchInfo
   case mi of
     Nothing  -> fail "No match is available."
     Just mi' -> return mi'
@@ -172,7 +149,7 @@ setVar (Var i) val = updateVars $ insert i (Value val)
 
 readVar :: Var a -> Mud a
 readVar (Var i) = do
-  varmap <- queryState vars
+  varmap <- gets vars
   Value val <- lookup i varmap
   return (unsafeCoerce val)
 
@@ -196,7 +173,7 @@ trigger dest message = do
 -- Executes the hook's action based on the matching message.
 fire :: String -> Hook -> Mud ()
 fire message hook = do
-    oldMatchInfo <- queryState matchInfo
+    oldMatchInfo <- gets matchInfo
     setMatchInfo $ Just (hook, message, match : groups)
     action hook
     setMatchInfo oldMatchInfo

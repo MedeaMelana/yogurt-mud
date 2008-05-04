@@ -4,6 +4,7 @@ import Core
 import System.IO
 import Network
 import Control.Concurrent
+import Control.Monad.State
 
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
@@ -11,8 +12,8 @@ connect host port mud = do
   putStrLn $ "Connecting to " ++ host ++ " port " ++ show port ++ "..."
   h <- connectTo host (PortNumber (fromIntegral port))
 
-  -- Create shared mud state.
-  vState <- newMVar (fst $ runMud mud emptyMud)
+  -- Create shared mud state, executing initial commands.
+  vState <- newMVar (execState mud emptyMud)
 
   -- Start child threads.
   let localInput  = maybeInput $ fmap (++ "\n") getLine
@@ -38,7 +39,7 @@ handleSource vState exec input dest = loop where
       Nothing -> return ()
       Just message -> do
         oldState <- takeMVar vState
-        let (newState, results) = runMud (trigger dest message >> flushResults) oldState
+        let (results, newState) = runState (trigger dest message >> flushResults) oldState
         exec results
         putMVar vState newState
         loop
