@@ -13,7 +13,7 @@ import Core
 import qualified System.Cmd as Cmd
 
 mkTrigger :: Pattern -> Mud () -> Mud Hook
-mkTrigger pat act = mkHook Local pat (act >> matchedLine >>= echo)
+mkTrigger pat act = mkHook Local pat (matchedLine >>= echo >> act)
 
 mkTriggerOnce :: Pattern -> Mud () -> Mud Hook
 mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
@@ -24,6 +24,11 @@ mkAlias :: String -> String -> Mud Hook
 mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
   suffix <- group 1
   echorln (subst ++ suffix)
+
+mkArgAlias :: String -> ([String] -> String) -> Mud Hook
+mkArgAlias pat f = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
+  args <- fmap words (group 1)
+  echorln (f args)
 
 mkCommand :: String -> Mud () -> Mud Hook
 mkCommand pat = mkHook Remote ("^" ++ pat ++ "($| .*$)")
