@@ -9,6 +9,7 @@ import System.Console.Readline
 import Data.Maybe (isJust)
 import Data.List (elemIndices)
 import WriteToTTY
+import Data.Char (isSpace)
 
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
@@ -30,7 +31,7 @@ localInput = do
   case maybeLine of
     Nothing   -> return Nothing
     Just line -> do
-      addHistory line
+      when (not $ all isSpace line) (addHistory line)
       return (Just $ line ++ "\n")
 
 remoteInput :: Handle -> IO (Maybe String)

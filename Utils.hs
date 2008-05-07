@@ -12,10 +12,10 @@ module Utils
 import Core
 import qualified System.Cmd as Cmd
 
-mkTrigger :: Pattern -> Mud () -> Mud Hook
+mkTrigger :: Pattern -> Mud a -> Mud Hook
 mkTrigger pat act = mkHook Local pat (matchedLine >>= echo >> act)
 
-mkTriggerOnce :: Pattern -> Mud () -> Mud Hook
+mkTriggerOnce :: Pattern -> Mud a -> Mud Hook
 mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
   hook <- mkTrigger pat (act >> rmHook hook)
   return hook
@@ -30,9 +30,10 @@ mkArgAlias pat f = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
   args <- fmap words (group 1)
   echorln (f args)
 
-mkCommand :: String -> Mud () -> Mud Hook
+mkCommand :: String -> Mud a -> Mud Hook
 mkCommand pat = mkHook Remote ("^" ++ pat ++ "($| .*$)")
 
+-- Todo: this is only really useful with priorities.
 matchMore :: Mud ()
 matchMore = do
   h <- triggeredHook

@@ -97,10 +97,10 @@ mkId = do
   modify $ \s -> s { supply = tail (supply s) }
   return i
 
-mkHook :: Destination -> Pattern -> Mud () -> Mud Hook
+mkHook :: Destination -> Pattern -> Mud a -> Mud Hook
 mkHook dest pat act = do
   hid <- mkId
-  let hook = Hook hid dest pat act
+  let hook = Hook hid dest pat (act >> return ())
   chHook hook
   return hook
 
