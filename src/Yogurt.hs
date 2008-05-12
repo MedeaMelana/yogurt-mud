@@ -1,7 +1,7 @@
 module Yogurt
-  ( module Yogurt.Core
+  ( module Yogurt.Mud
   , module Yogurt.Engine
   ) where
 
-import Yogurt.Core
+import Yogurt.Mud
 import Yogurt.Engine

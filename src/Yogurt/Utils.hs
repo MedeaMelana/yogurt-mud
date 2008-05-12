@@ -6,10 +6,10 @@ module Yogurt.Utils
   , matchMore
   , receive, sendln, echo, echoln, echorln
   , system
-  , module Yogurt.Core
+  , module Yogurt.Mud
   ) where
 
-import Yogurt.Core
+import Yogurt.Mud
 import qualified System.Cmd as Cmd
 
 mkTrigger :: Pattern -> Mud a -> Mud Hook

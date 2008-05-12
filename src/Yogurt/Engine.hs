@@ -1,6 +1,6 @@
 module Yogurt.Engine (connect) where
 
-import Yogurt.Core
+import Yogurt.Mud
 import System.IO
 import Network
 import Control.Concurrent
