@@ -2,7 +2,7 @@ module Main where
 
 import System.Console.Readline
 import Control.Concurrent
-import WriteToTTY
+import IO
 
 main :: IO ()
 main = do

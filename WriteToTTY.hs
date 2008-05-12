@@ -1,4 +1,4 @@
-module WriteToTTY where
+module IO (writeToTTY, splitAtPrompts, maybeInput, hGetImpatientLine) where
 
 import System.Console.Readline
 import Control.Monad (when)
@@ -35,3 +35,22 @@ splitAtPrompt :: String -> (String, String)
 splitAtPrompt cs = case elemIndices '\n' cs of
   [] -> ("", cs)
   is -> splitAt (last is + 1) cs
+
+-- Takes an input method and catches errors, returning results in the Maybe monad.
+maybeInput :: IO String -> IO (Maybe String)
+maybeInput input = fmap Just input `catch` const (return Nothing)
+
+-- Waits for input, but once the first character is read, waits
+-- no longer than the specified number of ms before giving up.
+hGetImpatientLine :: Handle -> Int -> IO String
+hGetImpatientLine h patience = rec where
+  rec = do
+    c <- hGetChar h
+    if c == '\n'
+      then return [c]
+      else do
+        b <- hWaitForInput h patience
+        if b
+          then rec >>= return . (c:)
+          else return [c]
+

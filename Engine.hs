@@ -76,23 +76,5 @@ remoteInput h = do
   input <- maybeInput (hGetImpatientLine h 50)
   return input
 
--- Takes an input method and catches errors, returning results in the Maybe monad.
-maybeInput :: IO String -> IO (Maybe String)
-maybeInput input = fmap Just input `catch` const (return Nothing)
-
--- Waits for input, but once the first character is read, waits
--- no longer than the specified number of ms before giving up.
-hGetImpatientLine :: Handle -> Int -> IO String
-hGetImpatientLine h patience = rec where
-  rec = do
-    c <- hGetChar h
-    if c == '\n'
-      then return [c]
-      else do
-        b <- hWaitForInput h patience
-        if b
-          then rec >>= return . (c:)
-          else return [c]
-
 debug :: String -> IO ()
 debug = appendFile "debug.log" . (++ "\n")
