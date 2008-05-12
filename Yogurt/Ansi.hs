@@ -1,4 +1,4 @@
-module Ansi where
+module Yogurt.Ansi (rmAnsi) where
 
 -- Removes ANSI sequences from a string.
 rmAnsi :: String -> String

@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
-module Core
+module Yogurt.Core
   ( Mud, MudState, Hook(..), Destination(..), Pattern, Result(..)  -- types
   , emptyMud
   , mkHook, chHook, rmHook, allHooks   -- hooks

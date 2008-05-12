@@ -1,4 +1,8 @@
-module IO (writeToTTY, splitAtPrompt, maybeInput, hGetImpatientLine) where
+module Yogurt.IO
+  (writeToTTY, splitAtPrompt
+  , maybeInput
+  , hGetImpatientLine
+  ) where
 
 import System.IO
 import System.Console.Readline

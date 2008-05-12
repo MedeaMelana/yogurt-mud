@@ -1,4 +1,4 @@
-module Engine where
+module Yogurt.Engine (connect) where
 
 import Core
 import System.IO

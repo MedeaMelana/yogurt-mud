@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
-module Utils
+module Yogurt.Utils
   ( mkTrigger, mkTriggerOnce
   , mkAlias, mkCommand
   , matchMore
