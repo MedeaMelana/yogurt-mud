@@ -25,23 +25,6 @@ connect host port mud = do
   forkIO $ handleS localInput Remote
   handleS (remoteInput h) Local
 
-localInput :: IO (Maybe String)
-localInput = do
-  maybeLine <- readline ""
-  case maybeLine of
-    Nothing   -> return Nothing
-    Just line -> do
-      when (not $ all isSpace line) (addHistory line)
-      return (Just $ line ++ "\n")
-
-remoteInput :: Handle -> IO (Maybe String)
-remoteInput h = do
-  input <- maybeInput (hGetImpatientLine h 50)
-  return input
-
--- Takes an input method and catches errors, returning results in the Maybe monad.
-maybeInput :: IO String -> IO (Maybe String)
-maybeInput input = fmap Just input `catch` const (return Nothing)
 
 -- Watches an input source and updates the mud state whenever a new message arrives.
 handleSource :: MVar MudState ->        -- shared mud state
@@ -76,6 +59,29 @@ executeResult h res = do
     RunIO io ->
       io
 
+
+-- Input from tty and remote
+
+localInput :: IO (Maybe String)
+localInput = do
+  maybeLine <- readline ""
+  case maybeLine of
+    Nothing   -> return Nothing
+    Just line -> do
+      when (not $ all isSpace line) (addHistory line)
+      return (Just $ line ++ "\n")
+
+remoteInput :: Handle -> IO (Maybe String)
+remoteInput h = do
+  input <- maybeInput (hGetImpatientLine h 50)
+  return input
+
+-- Takes an input method and catches errors, returning results in the Maybe monad.
+maybeInput :: IO String -> IO (Maybe String)
+maybeInput input = fmap Just input `catch` const (return Nothing)
+
+-- Waits for input, but once the first character is read, waits
+-- no longer than the specified number of ms before giving up.
 hGetImpatientLine :: Handle -> Int -> IO String
 hGetImpatientLine h patience = rec where
   rec = do
