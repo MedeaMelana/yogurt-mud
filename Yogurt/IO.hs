@@ -1,5 +1,5 @@
 module Yogurt.IO
-  (writeToTTY, splitAtPrompt
+  ( writeToTTY, splitAtPrompt
   , maybeInput
   , hGetImpatientLine
   ) where

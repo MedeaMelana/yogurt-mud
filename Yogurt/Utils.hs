@@ -2,14 +2,14 @@
 
 module Yogurt.Utils
   ( mkTrigger, mkTriggerOnce
-  , mkAlias, mkCommand
+  , mkAlias, mkArgAlias, mkCommand
   , matchMore
   , receive, sendln, echo, echoln, echorln
   , system
-  , module Core
+  , module Yogurt.Core
   ) where
 
-import Core
+import Yogurt.Core
 import qualified System.Cmd as Cmd
 
 mkTrigger :: Pattern -> Mud a -> Mud Hook

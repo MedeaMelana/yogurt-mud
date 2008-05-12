@@ -12,11 +12,9 @@ module Yogurt.Core
 
 import Prelude hiding (lookup)
 import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
-import Control.Monad.Fix
 import Unsafe.Coerce
 import Text.Regex.Posix
-import Debug.Trace (trace)
-import Ansi
+import Yogurt.Ansi
 import Control.Monad.State
 
 
@@ -45,7 +43,7 @@ type Pattern = String
 type MatchInfo = (Hook, String, [String]) -- Triggered hook; matched input line; regex groups.
 
 instance Show Hook where
-  show (Hook hid dest pat act) = "Hook " ++ show hid ++ " " ++ show dest ++ " [" ++ pat ++ "]"
+  show (Hook hid dest pat _) = "Hook " ++ show hid ++ " " ++ show dest ++ " [" ++ pat ++ "]"
 
 
 -- Variables.
@@ -59,7 +57,7 @@ data Result
   deriving Show
 
 instance Show (IO a) where
-  show io = "<<io>>"
+  show _ = "<<io>>"
 
 
 -- The initial state.
@@ -178,7 +176,7 @@ fire message hook = do
     action hook
     setMatchInfo oldMatchInfo
   where
-    (before, match, after, groups) = rmAnsi message =~ pattern hook :: (String, String, String, [String])
+    (_, match, _, groups) = rmAnsi message =~ pattern hook :: (String, String, String, [String])
 
 -- Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()

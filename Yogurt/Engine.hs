@@ -1,14 +1,12 @@
 module Yogurt.Engine (connect) where
 
-import Core
+import Yogurt.Core
 import System.IO
 import Network
 import Control.Concurrent
 import Control.Monad.State
 import System.Console.Readline
-import Data.Maybe (isJust)
-import Data.List (elemIndices)
-import IO
+import Yogurt.IO
 import Data.Char (isSpace)
 
 connect :: String -> Int -> Mud () -> IO ()
