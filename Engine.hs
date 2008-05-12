@@ -8,7 +8,7 @@ import Control.Monad.State
 import System.Console.Readline
 import Data.Maybe (isJust)
 import Data.List (elemIndices)
-import WriteToTTY
+import IO
 import Data.Char (isSpace)
 
 connect :: String -> Int -> Mud () -> IO ()

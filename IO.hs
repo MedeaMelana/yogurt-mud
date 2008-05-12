@@ -1,5 +1,6 @@
-module IO (writeToTTY, splitAtPrompts, maybeInput, hGetImpatientLine) where
+module IO (writeToTTY, splitAtPrompt, maybeInput, hGetImpatientLine) where
 
+import System.IO
 import System.Console.Readline
 import Control.Monad (when)
 import Data.List (elemIndices)
