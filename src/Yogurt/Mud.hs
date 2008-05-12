@@ -3,7 +3,7 @@
 module Yogurt.Mud
   ( Mud, MudState, Hook(..), Destination(..), Pattern, Result(..)  -- types
   , emptyMud
-  , mkHook, chHook, rmHook, allHooks   -- hooks
+  , mkHook, mkPrioHook, chHook, rmHook, allHooks   -- hooks
   , triggeredHook, matchedLine, group  -- triggered hooks
   , mkVar, setVar, readVar, modifyVar  -- variables
   , trigger, io, flushResults
@@ -16,6 +16,9 @@ import Unsafe.Coerce
 import Text.Regex.Posix
 import Yogurt.Ansi
 import Control.Monad.State
+import Data.List (sortBy)
+import Data.Function (on)
+import Data.Ord (comparing)
 
 
 -- Types.
@@ -34,6 +37,7 @@ data MudState = MudState
 -- Hooks.
 data Hook = Hook
   { hid         :: Int
+  , priority    :: Int
   , destination :: Destination
   , pattern     :: Pattern
   , action      :: Mud ()
@@ -43,7 +47,7 @@ type Pattern = String
 type MatchInfo = (Hook, String, [String]) -- Triggered hook; matched input line; regex groups.
 
 instance Show Hook where
-  show (Hook hid dest pat _) = "Hook " ++ show hid ++ " " ++ show dest ++ " [" ++ pat ++ "]"
+  show (Hook hid prio dest pat _) = "Hook #" ++ show hid ++ " @" ++ show dest ++ " [" ++ pat ++ "]"
 
 
 -- Variables.
@@ -96,20 +100,25 @@ mkId = do
   return i
 
 mkHook :: Destination -> Pattern -> Mud a -> Mud Hook
-mkHook dest pat act = do
+mkHook = mkPrioHook 0
+
+mkPrioHook :: Int -> Destination -> Pattern -> Mud a -> Mud Hook
+mkPrioHook prio dest pat act = do
   hid <- mkId
-  let hook = Hook hid dest pat (act >> return ())
+  let hook = Hook hid prio dest pat (act >> return ())
   chHook hook
   return hook
 
+-- Saves a changed hook, or reactivates it.
 chHook :: Hook -> Mud ()
 chHook hook = updateHooks $ insert (hid hook) hook
 
 rmHook :: Hook -> Mud ()
 rmHook = updateHooks . delete . hid
 
+-- Yields all current hooks, high priority first.
 allHooks :: Mud [Hook]
-allHooks = gets (elems . hooks)
+allHooks = gets (reverse . sortBy (comparing priority) . elems . hooks)
 
 
 -- MatchInfo
