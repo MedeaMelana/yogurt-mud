@@ -19,7 +19,7 @@ connect host port mud = do
   vState <- newMVar (execState mud emptyMud)
 
   -- Start child threads.
-  let handleS = handleSource vState (executeResults h)
+  let handleS = handleSource vState (executeResults h vState)
   forkIO $ handleS localInput Remote
   handleS (remoteInput h) Local
 
@@ -42,12 +42,12 @@ handleSource vState exec input dest = loop where
         putMVar vState newState
         loop
 
-executeResults :: Handle -> [Result] -> IO ()
-executeResults h rs = do
-    sequence_ (map (executeResult h) rs)
+executeResults :: Handle -> MVar MudState -> [Result] -> IO ()
+executeResults h vState rs = do
+    sequence_ (map (executeResult h vState) rs)
 
-executeResult :: Handle -> Result -> IO ()
-executeResult h res = do
+executeResult :: Handle -> MVar MudState -> Result -> IO ()
+executeResult h vState res = do
   debug (show res)
   case res of
     Send ch msg ->
@@ -56,6 +56,19 @@ executeResult h res = do
         Remote -> do hPutStr h msg; hFlush h
     RunIO io ->
       io
+    NewTimer timer time ->
+      spawnTimer vState timer time
+
+spawnTimer :: MVar MudState -> Timer -> Int -> IO ()
+spawnTimer vState t@(Timer ti act) time = forkIO loop >> return () where
+  loop = do
+    threadDelay time
+    st1 <- takeMVar vState
+    let ok = evalState (existsTimer t) st1
+    let st2 = if ok then execState act st1 else st1
+    putMVar vState st2
+    let again = evalState (existsTimer t) st2
+    when again loop
 
 
 -- Input from tty and remote

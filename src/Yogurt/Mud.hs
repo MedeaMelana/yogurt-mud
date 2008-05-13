@@ -1,17 +1,18 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
 module Yogurt.Mud
-  ( Mud, MudState, Hook(..), Destination(..), Pattern, Result(..)  -- types
+  ( Mud, MudState, Hook(..), Destination(..), Pattern, Timer(..), Result(..)  -- types
   , emptyMud
   , mkHook, mkPrioHook, chHook, rmHook, allHooks   -- hooks
-  , triggeredHook, matchedLine, group  -- triggered hooks
-  , mkVar, setVar, readVar, modifyVar  -- variables
+  , triggeredHook, matchedLine, group              -- triggered hooks
+  , mkVar, setVar, readVar, modifyVar              -- variables
+  , mkTimer, rmTimer, existsTimer                  -- timers
   , trigger, io, flushResults
   , runIO
   ) where
 
 import Prelude hiding (lookup)
-import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
+import Data.IntMap (IntMap, empty, insert, delete, lookup, elems, member)
 import Unsafe.Coerce
 import Text.Regex.Posix
 import Yogurt.Ansi
@@ -28,6 +29,7 @@ type Mud = State MudState
 data MudState = MudState
   { hooks     :: IntMap Hook
   , vars      :: IntMap Value
+  , timers    :: IntMap Timer
   , supply    :: [Int]
   , matchInfo :: Maybe MatchInfo
   , results   :: [Result]
@@ -54,20 +56,30 @@ instance Show Hook where
 data Var a = Var Int
 data Value = forall a. Value a
 
+-- Timers.
+data Timer = Timer
+  { tid     :: Int
+  , taction :: Mud ()
+  } deriving Show
+
 -- Results.
 data Result
   = Send Destination String  -- no implicit newlines!
   | RunIO (IO ())
+  | NewTimer Timer Int
   deriving Show
 
 instance Show (IO a) where
   show _ = "<<io>>"
 
+instance Show (Mud a) where
+  show _ = "<<mud>>"
+
 
 -- The initial state.
 
 emptyMud :: MudState
-emptyMud = MudState empty empty [0..] Nothing []
+emptyMud = MudState empty empty empty [0..] Nothing []
 
 
 -- Helper functions for querying and manipulating state.
@@ -77,6 +89,9 @@ updateHooks f = modify $ \s -> s { hooks = f (hooks s) }
 
 updateVars :: (IntMap Value -> IntMap Value) -> Mud ()
 updateVars f = modify $ \s -> s { vars = f (vars s) }
+
+updateTimers :: (IntMap Timer -> IntMap Timer) -> Mud ()
+updateTimers f = modify $ \s -> s { timers = f (timers s) }
 
 addResult :: Result -> Mud ()
 addResult r = modify $ \s -> s { results = results s ++ [r] }
@@ -89,6 +104,9 @@ flushResults = do
 
 runIO :: IO () -> Mud ()
 runIO io = addResult (RunIO io)
+
+withIO :: IO a -> (a -> Mud ()) -> Mud ()
+withIO = undefined
 
 
 -- Hooks
@@ -162,6 +180,26 @@ readVar (Var i) = do
 
 modifyVar :: Var a -> (a -> a) -> Mud ()
 modifyVar var f = readVar var >>= setVar var . f
+
+
+-- Timers
+
+mkTimer :: Int -> Mud () -> Mud Timer
+mkTimer time act = do
+  i <- mkId
+  let timer = Timer i act
+  updateTimers $ insert i timer
+  addResult (NewTimer timer time)
+  return timer
+
+rmTimer :: Timer -> Mud Bool
+rmTimer (Timer ti _) = do
+  b <- gets (member ti . timers)
+  updateTimers $ delete ti
+  return b
+
+existsTimer :: Timer -> Mud Bool
+existsTimer (Timer ti _) = gets (member ti . timers)  
 
 
 -- Matching of hooks
