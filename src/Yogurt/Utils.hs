@@ -50,6 +50,12 @@ matchMore = do
   rmHook h
   trigger (destination h) m
   chHook h
+
+
+mkTimerOnce :: Int -> Mud () -> Mud Timer
+mkTimerOnce interval act = mdo
+  t <- mkTimer interval (act >> rmTimer t >> return ())
+  return t
   
 
 -- Trigger and io derivatives.
