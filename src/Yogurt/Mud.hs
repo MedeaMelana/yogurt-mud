@@ -60,20 +60,13 @@ data Value = forall a. Value a
 data Timer = Timer
   { tid     :: Int
   , taction :: Mud ()
-  } deriving Show
+  }
 
 -- Results.
 data Result
   = Send Destination String  -- no implicit newlines!
-  | RunIO (IO ())
+  | forall a. RunIO (IO a) (a -> Mud ())
   | NewTimer Timer Int
-  deriving Show
-
-instance Show (IO a) where
-  show _ = "<<io>>"
-
-instance Show (Mud a) where
-  show _ = "<<mud>>"
 
 
 -- The initial state.
@@ -103,10 +96,10 @@ flushResults = do
   return rs
 
 runIO :: IO () -> Mud ()
-runIO io = addResult (RunIO io)
+runIO io = withIO io (const $ return ())
 
 withIO :: IO a -> (a -> Mud ()) -> Mud ()
-withIO = undefined
+withIO io act = addResult (RunIO io act)
 
 
 -- Hooks

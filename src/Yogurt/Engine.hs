@@ -47,15 +47,14 @@ executeResults h vState rs = do
     sequence_ (map (executeResult h vState) rs)
 
 executeResult :: Handle -> MVar MudState -> Result -> IO ()
-executeResult h vState res = do
-  debug (show res)
-  case res of
+executeResult h vState res = case res of
     Send ch msg ->
       case ch of
         Local  -> writeToTTY msg
         Remote -> do hPutStr h msg; hFlush h
-    RunIO io ->
+    RunIO io actf -> do
       io
+      return ()      
     NewTimer timer time ->
       spawnTimer vState timer time
 
@@ -86,6 +85,3 @@ remoteInput :: Handle -> IO (Maybe String)
 remoteInput h = do
   input <- maybeInput (hGetImpatientLine h 50)
   return input
-
-debug :: String -> IO ()
-debug = appendFile "debug.log" . (++ "\n")
