@@ -1,3 +1,5 @@
+{-# OPTIONS_HADDOCK hide #-}
+
 module Yogurt.IO
   ( writeToTTY, splitAtPrompt
   , maybeInput

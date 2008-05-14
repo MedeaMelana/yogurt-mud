@@ -1,3 +1,5 @@
+{-# OPTIONS_HADDOCK hide #-}
+
 module Yogurt.Ansi (rmAnsi) where
 
 -- Removes ANSI sequences from a string.

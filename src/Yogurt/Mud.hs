@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
+-- | The core of Yogurt, consisting of the Mud monad and all functions manipulating this monad.
 module Yogurt.Mud (
 
   -- * Types
@@ -7,16 +8,19 @@ module Yogurt.Mud (
   Hook,
   Destination(..),
   Pattern,
-  Timer,
+  Timer, Interval,
   Result(..),
 
   -- * Hooks
--- | A hook watches a channel for messages matching a specific regular expression. When a hook fires, the triggering message is intercept and the hook's action is executed. When a message doesn't trigger any hooks, it is sent to its destination immediately. A hook's action may query for match-specific data; see "Yogurt.Mud#MatchInformation". At most one hook fires for each message. If several hooks match, only the hook with the highest priority fires. If there is still a tie, the hook that was defined first fires.
-  mkHook, mkPrioHook, chHook, rmHook, allHooks,
+  -- | A hook watches a channel for messages matching a specific regular expression. When a hook fires, the triggering message is consumed and the hook's action is executed. When a message doesn't trigger any hooks, it is sent on to its destination. A hook's action may query for match-specific data; see section Match Information. At most one hook fires for each message, unless the hook's action explicitly sends the message through 'trigger' again. If several hooks match, only the hook with the highest priority fires. If there is still a tie, the hook that was defined first fires.
+  mkHook, mkPrioHook, setHook, rmHook, allHooks,
+  
+  -- ** Hook record fields
+  -- | Use these in combination with 'setHook' to update hooks.
   priority, destination, pattern, action,
 
   -- * Match information
-  -- | Several functions for querying the currently firing hook. These functions should only be called from within a hook's body.
+  -- | #MatchInformation# Functions for querying the currently firing hook. These functions should only be called from within a hook's body.
   triggeredHook, matchedLine, group,
 
   -- * Variables
@@ -45,7 +49,9 @@ import Data.Function (on)
 import Data.Ord (comparing)
 
 
--- Types.
+
+-- Section: Types.
+
 
 -- | The Mud monad is a simple state monad.
 type Mud = State MudState
@@ -53,7 +59,7 @@ type Mud = State MudState
 -- | State internal to the Mud monad.
 data MudState = MudState
   { hooks     :: IntMap Hook
-  , vars      :: IntMap Value
+  , vars      :: IntMap Opaque
   , timers    :: IntMap Timer
   , supply    :: [Int]
   , matchInfo :: Maybe MatchInfo
@@ -64,8 +70,6 @@ data MudState = MudState
 emptyMud :: MudState
 emptyMud = MudState empty empty empty [0..] Nothing []
 
-
--- Hooks.
 -- | The abstract Hook type.
 data Hook = Hook
   { hid         :: Int
@@ -76,26 +80,23 @@ data Hook = Hook
   }
 
 instance Show Hook where
-  show (Hook hid prio dest pat _) = "Hook #" ++ show hid ++ " @" ++ show dest ++ " [" ++ pat ++ "]"
+  show (Hook hid prio dest pat _) = "Hook #" ++ show hid ++ " @" ++ show prio ++ " " ++ show dest ++ " [" ++ pat ++ "]"
 
 -- | Used to distinguish between messages going in different directions.
 data Destination
   = Local   -- ^ The message is headed towards the user's terminal.
   | Remote  -- ^ The message is headed towards the remote MUD server.
-  deriving (Eq, Show, Read, Enum)
+  deriving (Eq, Show, Read, Enum, Ord)
 
 -- | A Pattern is a regular expression.
 type Pattern = String
 
 type MatchInfo = (Hook, String, [String]) -- Triggered hook; matched input line; regex groups.
 
-
--- Variables.
-
 -- | Variables hold temporary, updatable, typed data.
 data Var a = Var Int
 
-data Value = forall a. Value a
+data Opaque = forall a. Opaque a
 
 -- Timers.
 -- | The abstract Timer type.
@@ -104,16 +105,19 @@ data Timer = Timer
   , taction :: Mud ()  -- ^ Yields the timer's action.
   }
 
--- Results.
+-- | Interval in milliseconds.
+type Interval = Int
 
 -- | A @Result@ is a consequence of executing a @Mud@ program.
 data Result
   = Send Destination String  -- no implicit newlines!
   | forall a. RunIO (IO a) (a -> Mud ())
-  | NewTimer Timer Int  -- interval in ms
+  | NewTimer Timer Interval
 
 
--- Helper functions for querying and manipulating state.
+
+-- Section: Helper functions for querying and manipulating state.
+
 
 mkId :: Mud Int
 mkId = do
@@ -124,7 +128,7 @@ mkId = do
 updateHooks :: (IntMap Hook -> IntMap Hook) -> Mud ()
 updateHooks f = modify $ \s -> s { hooks = f (hooks s) }
 
-updateVars :: (IntMap Value -> IntMap Value) -> Mud ()
+updateVars :: (IntMap Opaque -> IntMap Opaque) -> Mud ()
 updateVars f = modify $ \s -> s { vars = f (vars s) }
 
 updateTimers :: (IntMap Timer -> IntMap Timer) -> Mud ()
@@ -141,7 +145,9 @@ flushResults = do
   return rs
 
 
--- Hooks
+
+-- Section: Hooks.
+
 
 -- | Creates and installs a hook that watches messages headed to the specified destination and match the specified pattern. The hook has priority 0.
 mkHook :: Destination -> Pattern -> Mud a -> Mud Hook
@@ -152,12 +158,12 @@ mkPrioHook :: Int -> Destination -> Pattern -> Mud a -> Mud Hook
 mkPrioHook prio dest pat act = do
   hid <- mkId
   let hook = Hook hid prio dest pat (act >> return ())
-  chHook hook
+  setHook hook
   return hook
 
 -- | Saves a changed hook, or reactivates it.
-chHook :: Hook -> Mud ()
-chHook hook = updateHooks $ insert (hid hook) hook
+setHook :: Hook -> Mud ()
+setHook hook = updateHooks $ insert (hid hook) hook
 
 -- | Disables a hook.
 rmHook :: Hook -> Mud ()
@@ -168,7 +174,9 @@ allHooks :: Mud [Hook]
 allHooks = gets (reverse . sortBy (comparing priority) . elems . hooks)
 
 
--- MatchInfo
+
+-- Section: MatchInfo.
+
 
 setMatchInfo :: Maybe MatchInfo -> Mud ()
 setMatchInfo mi = modify $ \s -> s { matchInfo = mi }
@@ -193,7 +201,7 @@ group :: Int -> Mud String
 group n = getMatchInfo >>= (return . (!! n) . (\(_,_,x) -> x))
 
 
--- Variables
+-- Section: Variables.
 
 -- | Creates a variable with an initial value.
 mkVar :: a -> Mud (Var a)
@@ -204,13 +212,13 @@ mkVar val = do
 
 -- | Updates a variable to a new value.
 setVar :: Var a -> a -> Mud ()
-setVar (Var i) val = updateVars $ insert i (Value val)
+setVar (Var i) val = updateVars $ insert i (Opaque val)
 
 -- | Yields the variable's current value.
 readVar :: Var a -> Mud a
 readVar (Var i) = do
   varmap <- gets vars
-  Value val <- lookup i varmap
+  Opaque val <- lookup i varmap
   return (unsafeCoerce val)
 
 -- | Updates the variable using the update function.
@@ -218,13 +226,15 @@ modifyVar :: Var a -> (a -> a) -> Mud ()
 modifyVar var f = readVar var >>= setVar var . f
 
 
--- Timers
+
+-- Section: Timers.
+
 
 -- | @mkTimer interval prog@ creates a timer that executes @prog@ every @interval@ milliseconds.
-mkTimer :: Int -> Mud () -> Mud Timer
+mkTimer :: Interval -> Mud a -> Mud Timer
 mkTimer interval prog = do
   i <- mkId
-  let timer = Timer i prog
+  let timer = Timer i (prog >> return ())
   updateTimers $ insert i timer
   addResult (NewTimer timer interval)
   return timer
@@ -245,7 +255,9 @@ allTimers :: Mud [Timer]
 allTimers = gets (elems . timers)
 
 
--- Matching of hooks
+
+-- Section: Triggering hooks
+
 
 -- | If the message triggers a hook, it is fired. Otherwise, the message is passed on to the destination using 'io'.
 trigger :: Destination -> String -> Mud ()
@@ -270,6 +282,11 @@ fire message hook = do
 -- | Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
 io ch message = addResult (Send ch message)
+
+
+
+-- Section: IO.
+
 
 -- | Invokes withIO, discarding the IO's result.
 runIO :: IO a -> Mud ()

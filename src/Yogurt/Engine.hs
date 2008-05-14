@@ -98,7 +98,7 @@ executeResult env@(h, _) res = case res of
 
 
 -- Called whenever a new timer is created.
-runTimer :: Environment -> Timer -> Int -> IO ()
+runTimer :: Environment -> Timer -> Interval -> IO ()
 runTimer env@(h, vState) timer interval = loop where
   loop = do
     -- Sleep.

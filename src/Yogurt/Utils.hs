@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
+-- | Convenience functions on top of "Yogurt.Mud".
 module Yogurt.Utils (
+  -- * Re-exports
   module Yogurt.Mud,
 
   -- * Hook and timer derivatives
@@ -48,7 +50,7 @@ mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
   suffix <- group 1
   echorln (subst ++ suffix)
 
--- | Like 'mkAlias', @mkArgAlias command subst@ creates a hook that watches messages headed to the remote MUD. But here the whole message is substitued instead of just the first command word, and the substitution depends on the command's arguments.
+-- | Like 'mkAlias', @mkArgAlias command subst@ creates a hook that watches messages headed to the remote MUD. But here the whole message is substituted instead of just the first command word, and the substitution depends on the command's arguments.
 mkArgAlias :: String -> ([String] -> String) -> Mud Hook
 mkArgAlias pat f = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
   args <- fmap words (group 1)
@@ -59,9 +61,9 @@ mkCommand :: String -> Mud a -> Mud Hook
 mkCommand pat = mkHook Remote ("^" ++ pat ++ "($| .*$)")
 
 -- | Creates a timer that fires only once.
-mkTimerOnce :: Int -> Mud () -> Mud Timer
+mkTimerOnce :: Interval -> Mud a -> Mud Timer
 mkTimerOnce interval act = mdo
-  t <- mkTimer interval (act >> rmTimer t >> return ())
+  t <- mkTimer interval (act >> rmTimer t)
   return t
 
 
@@ -120,15 +122,15 @@ stopLogging (r, l) = do
 -- Miscellaneous.
 
 
--- | When called from a hook body, causes matching to continue on the currently triggering message. The firing hook won't participate again on this message.
+-- | When called from a hook body, causes matching to continue (using 'trigger') on the currently triggering message. The firing hook won't fire again on this specific message.
 matchMore :: Mud ()
 matchMore = do
   h <- triggeredHook
   m <- matchedLine
   rmHook h
   trigger (destination h) m
-  chHook h
+  setHook h
 
 -- | Executes a shell command.
 system :: String -> Mud ()
-system command = runIO (Cmd.system command >> return ())
+system = runIO . Cmd.system
