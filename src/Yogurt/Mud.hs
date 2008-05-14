@@ -66,7 +66,7 @@ data Timer = Timer
 data Result
   = Send Destination String  -- no implicit newlines!
   | forall a. RunIO (IO a) (a -> Mud ())
-  | NewTimer Timer Int
+  | NewTimer Timer Int  -- interval in ms
 
 
 -- The initial state.

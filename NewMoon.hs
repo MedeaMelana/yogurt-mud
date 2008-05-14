@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fglasgow-exts #-}
+
 module Main where
 
 import Yogurt
@@ -37,7 +39,18 @@ newmoon = do
     times (read n) (sendln dir)
   
   startLogging "NewMoon"
-  
+
+  mkCommand "_go" $ mdo
+    t <- mkTimerOnce 1000 $ do
+      echoln "hello!"
+      rmHook h
+    h <- mkCommand "_stop" (rmTimer t)
+    return ()
+
+  mkPrioHook 5 Remote "(.*);(.*)" $ do
+    group 1 >>= sendln
+    group 2 >>= sendln
+
   return ()
 
 times :: Monad m => Int -> m a -> m [a]

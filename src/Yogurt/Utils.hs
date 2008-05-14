@@ -4,6 +4,7 @@ module Yogurt.Utils
   ( mkTrigger, mkTriggerOnce
   , mkAlias, mkArgAlias, mkCommand
   , matchMore
+  , mkTimerOnce
   , receive, sendln, echo, echoln, echorln
   , system
   , startLogging, stopLogging, Logger
