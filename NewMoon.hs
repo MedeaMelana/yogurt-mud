@@ -47,7 +47,7 @@ newmoon = do
     h <- mkCommand "_stop" (rmTimer t)
     return ()
 
-  mkPrioHook 5 Remote "(.*);(.*)" $ do
+  mkPrioHook 5 Remote "^(.*);(.*)$" $ do
     group 1 >>= sendln
     group 2 >>= sendln
 
