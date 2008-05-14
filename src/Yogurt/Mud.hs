@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
 module Yogurt.Mud (
+
   -- * Types
   Mud, MudState, emptyMud,
   Hook,
@@ -8,22 +9,29 @@ module Yogurt.Mud (
   Pattern,
   Timer,
   Result(..),
+
   -- * Hooks
 -- | A hook watches a channel for messages matching a specific regular expression. When a hook fires, the triggering message is intercept and the hook's action is executed. When a message doesn't trigger any hooks, it is sent to its destination immediately. A hook's action may query for match-specific data; see "Yogurt.Mud#MatchInformation". At most one hook fires for each message. If several hooks match, only the hook with the highest priority fires. If there is still a tie, the hook that was defined first fires.
   mkHook, mkPrioHook, chHook, rmHook, allHooks,
   priority, destination, pattern, action,
+
   -- * Match information
   -- | Several functions for querying the currently firing hook. These functions should only be called from within a hook's body.
   triggeredHook, matchedLine, group,
+
   -- * Variables
   mkVar, setVar, readVar, modifyVar,
+
   -- * Timers
   mkTimer, rmTimer, existsTimer, allTimers,
   taction,
+
   -- * Triggering hooks
   trigger, io, flushResults,
+
   -- * IO
   withIO, runIO
+
   ) where
 
 import Prelude hiding (lookup)
