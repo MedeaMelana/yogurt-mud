@@ -14,7 +14,7 @@ import Data.Char (isSpace)
 type Environment = (Handle, MVar MudState)
 
 
--- Connects to a MUD and executes the specified program.
+-- | Connects to a MUD and executes the specified program.
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
   -- Connect.

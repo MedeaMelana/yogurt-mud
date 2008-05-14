@@ -4,6 +4,11 @@ default:
 nm:
 	runghc -isrc NewMoon
 
-clean:
-	rm *.hi *.o
+docs:
+	mkdir docs
+	haddock -B /usr/local/lib/ghc-6.8.2 --optghc=-isrc -o docs --html src/Yogurt.hs src/Yogurt/Utils.hs
+	#open -a Safari docs/index.html
 
+clean:
+	find src -name '*.hi' -or -name '*.o' | xargs -n 1 rm
+	rm -rf docs
