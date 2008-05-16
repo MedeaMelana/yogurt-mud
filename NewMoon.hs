@@ -44,12 +44,16 @@ newmoon = do
     t <- mkTimerOnce 1000 $ do
       echoln "hello!"
       rmHook h
-    h <- mkCommand "_stop" (rmTimer t)
+    h <- mkCommand "_stop" (rmTimer t >> rmHook h)
     return ()
 
   mkPrioHook 5 Remote "^(.*);(.*)$" $ do
     group 1 >>= sendln
     group 2 >>= sendln
+  
+  mkCommand "lshooks" $ do
+    hs <- allHooks
+    echoln $ unlines $ map show hs
 
   return ()
 
