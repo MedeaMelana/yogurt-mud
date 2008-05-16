@@ -10,5 +10,5 @@ docs:
 	#open -a Safari docs/index.html
 
 clean:
-	find src -name '*.hi' -or -name '*.o' | xargs -n 1 rm
+	find . -name '*.hi' -or -name '*.o' | xargs -n 1 rm
 	rm -rf docs
