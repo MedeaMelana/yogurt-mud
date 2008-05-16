@@ -41,10 +41,8 @@ newmoon = do
   startLogging "NewMoon"
 
   mkCommand "_go" $ mdo
-    t <- mkTimerOnce 1000 $ do
-      echoln "hello!"
-      rmHook h
-    h <- mkCommand "_stop" (rmTimer t >> rmHook h)
+    t <- mkTimerOnce 1000  (echoln "hello!" >> rmHook h)
+    h <- mkCommand "_stop" (rmTimer t       >> rmHook h)
     return ()
 
   mkPrioHook 5 Remote "^(.*);(.*)$" $ do

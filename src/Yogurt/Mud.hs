@@ -12,7 +12,7 @@ module Yogurt.Mud (
   Result(..),
 
   -- * Hooks
-  -- | A hook watches a channel for messages matching a specific regular expression. When a hook fires, the triggering message is consumed and the hook's action is executed. When a message doesn't trigger any hooks, it is sent on to its destination. A hook's action may query for match-specific data; see section Match Information. At most one hook fires for each message, unless the hook's action explicitly sends the message through 'trigger' again. If several hooks match, only the hook with the highest priority fires. If there is still a tie, the hook that was defined first fires.
+  -- | A hook watches a channel for messages matching a specific regular expression. When a hook fires, the triggering message is consumed and the hook's action is executed. When a message doesn't trigger any hooks, it is sent on to its destination. A hook's action may query for match-specific data; see section Match Information. At most one hook fires for each message, unless the hook's action explicitly sends the message through 'trigger' again. If several hooks match, only the hook with the highest priority fires. If there is still a tie, the hook that was defined last (using 'mkHook') fires.
   mkHook, mkPrioHook, setHook, rmHook, allHooks,
   
   -- ** Hook record fields
@@ -28,6 +28,7 @@ module Yogurt.Mud (
 
   -- * Timers
   mkTimer, rmTimer, existsTimer, allTimers,
+  -- ** Timer record fields
   tAction, tInterval,
 
   -- * Triggering hooks
@@ -150,11 +151,11 @@ flushResults = do
 -- Section: Hooks.
 
 
--- | Creates and installs a hook that watches messages headed to the specified destination and match the specified pattern. The hook has priority 0.
+-- | Calls 'mkPrioHook' with priority 0.
 mkHook :: Destination -> Pattern -> Mud a -> Mud Hook
 mkHook = mkPrioHook 0
 
--- | Like 'mkHook'. Creates a prioritized hook.
+-- | Creates and installs a hook that watches messages headed to the specified destination and match the specified pattern.
 mkPrioHook :: Int -> Destination -> Pattern -> Mud a -> Mud Hook
 mkPrioHook prio dest pat act = do
   hid <- mkId
@@ -170,7 +171,7 @@ setHook hook = updateHooks $ insert (hId hook) hook
 rmHook :: Hook -> Mud ()
 rmHook = updateHooks . delete . hId
 
--- | Yields all current hooks in preferred firing order: first ordered by priority, then for ties sorted by definition time.
+-- | Yields all current hooks in preferred firing order.
 allHooks :: Mud [Hook]
 allHooks = gets (reverse . sortBy (comparing hPriority) . elems . hooks)
 
@@ -200,6 +201,7 @@ matchedLine = getMatchInfo >>= return . (\(_,x,_) -> x)
 -- | Yields the regex group from the matched line.
 group :: Int -> Mud String
 group n = getMatchInfo >>= (return . (!! n) . (\(_,_,x) -> x))
+
 
 
 -- Section: Variables.
@@ -240,12 +242,9 @@ mkTimer interval prog = do
   addResult (NewTimer timer)
   return timer
 
--- | Disables the timer. Returns False if the timer was already disabled.
-rmTimer :: Timer -> Mud Bool
-rmTimer (Timer ti _ _) = do
-  b <- gets (member ti . timers)
-  updateTimers $ delete ti
-  return b
+-- | Disables the timer.
+rmTimer :: Timer -> Mud ()
+rmTimer = updateTimers . delete . tId
 
 -- | Checks whether a timer is active.
 existsTimer :: Timer -> Mud Bool

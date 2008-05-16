@@ -1,4 +1,4 @@
-module Yogurt.Engine (connect) where
+module Yogurt.Engine (connect, Environment, runMud) where
 
 import Yogurt.Mud
 import System.IO
@@ -10,7 +10,7 @@ import Yogurt.IO
 import Data.Char (isSpace)
 
 
--- Data that is manipulated and passed around during execution.
+-- | Data that is manipulated and passed around during execution. The Handle belongs to the telnet connection; the MVar contains the current MudState.
 type Environment = (Handle, MVar MudState)
 
 
@@ -49,6 +49,7 @@ handleSource env input dest = loop where
 localInput :: IO (Maybe String)
 localInput = do
   maybeLine <- readline ""
+  setLineBuffer ""
   case maybeLine of
     Nothing   -> return Nothing
     Just line -> do
@@ -63,7 +64,7 @@ remoteInput h = do
   return input
 
 
--- Runs a Mud computation, executes the results and returns the computation's result.
+-- | Runs a Mud computation, executes the results (such as sending messages to the screen or the MUD) and returns the computation's result. The MVar is updated.
 runMud :: Environment -> Mud a -> IO a
 runMud env@(_, vState) prog = do
   s1 <- takeMVar vState
