@@ -128,7 +128,7 @@ matchMore = do
   h <- triggeredHook
   m <- matchedLine
   rmHook h
-  trigger (destination h) m
+  trigger (hDestination h) m
   setHook h
 
 -- | Executes a shell command.

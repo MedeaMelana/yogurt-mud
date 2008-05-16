@@ -106,7 +106,7 @@ runTimer env@(h, vState) timer interval = loop where
 
     -- Execute timer action only if timer hasn't been removed in the meantime.
     ok <- runMud env (existsTimer timer)
-    when ok (runMud env $ taction timer)
+    when ok (runMud env $ tAction timer)
 
     -- Maybe the timer's action removed the timer. If not, run again.
     again <- runMud env (existsTimer timer)

@@ -17,7 +17,7 @@ module Yogurt.Mud (
   
   -- ** Hook record fields
   -- | Use these in combination with 'setHook' to update hooks.
-  priority, destination, pattern, action,
+  hPriority, hDestination, hPattern, hAction,
 
   -- * Match information
   -- | #MatchInformation# Functions for querying the currently firing hook. These functions should only be called from within a hook's body.
@@ -28,7 +28,7 @@ module Yogurt.Mud (
 
   -- * Timers
   mkTimer, rmTimer, existsTimer, allTimers,
-  taction,
+  tAction,
 
   -- * Triggering hooks
   trigger, io, flushResults,
@@ -72,11 +72,11 @@ emptyMud = MudState empty empty empty [0..] Nothing []
 
 -- | The abstract Hook type.
 data Hook = Hook
-  { hid         :: Int
-  , priority    :: Int          -- ^ Yields the hook's priority. 
-  , destination :: Destination  -- ^ Yields the destination this hook watches.
-  , pattern     :: Pattern      -- ^ Yields the pattern messages must have for this hook to fire.
-  , action      :: Mud ()       -- ^ Yields the Mud program to execute when the hook fires.
+  { hId         :: Int
+  , hPriority    :: Int          -- ^ Yields the hook's priority. 
+  , hDestination :: Destination  -- ^ Yields the destination this hook watches.
+  , hPattern     :: Pattern      -- ^ Yields the pattern messages must have for this hook to fire.
+  , hAction      :: Mud ()       -- ^ Yields the Mud program to execute when the hook fires.
   }
 
 instance Show Hook where
@@ -101,8 +101,8 @@ data Opaque = forall a. Opaque a
 -- Timers.
 -- | The abstract Timer type.
 data Timer = Timer
-  { tid     :: Int
-  , taction :: Mud ()  -- ^ Yields the timer's action.
+  { tId     :: Int
+  , tAction :: Mud ()  -- ^ Yields the timer's action.
   }
 
 -- | Interval in milliseconds.
@@ -163,15 +163,15 @@ mkPrioHook prio dest pat act = do
 
 -- | Saves a changed hook, or reactivates it.
 setHook :: Hook -> Mud ()
-setHook hook = updateHooks $ insert (hid hook) hook
+setHook hook = updateHooks $ insert (hId hook) hook
 
 -- | Disables a hook.
 rmHook :: Hook -> Mud ()
-rmHook = updateHooks . delete . hid
+rmHook = updateHooks . delete . hId
 
 -- | Yields all current hooks in preferred firing order: first ordered by priority, then for ties sorted by definition time.
 allHooks :: Mud [Hook]
-allHooks = gets (reverse . sortBy (comparing priority) . elems . hooks)
+allHooks = gets (reverse . sortBy (comparing hPriority) . elems . hooks)
 
 
 
@@ -267,17 +267,17 @@ trigger dest message = do
       []       -> io dest message
       (hook:_) -> fire message hook
   where
-    ok hook = destination hook == dest && rmAnsi message =~ pattern hook
+    ok hook = hDestination hook == dest && rmAnsi message =~ hPattern hook
 
 -- | Executes the hook's action based on the matching message.
 fire :: String -> Hook -> Mud ()
 fire message hook = do
     oldMatchInfo <- gets matchInfo
     setMatchInfo $ Just (hook, message, match : groups)
-    action hook
+    hAction hook
     setMatchInfo oldMatchInfo
   where
-    (_, match, _, groups) = rmAnsi message =~ pattern hook :: (String, String, String, [String])
+    (_, match, _, groups) = rmAnsi message =~ hPattern hook :: (String, String, String, [String])
 
 -- | Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
