@@ -1,6 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 
-module Yogurt.IO
+module Network.Yogurt.IO
   ( writeToTTY, splitAtPrompt
   , maybeInput
   , hGetImpatientLine

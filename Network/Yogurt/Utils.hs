@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
 -- | Convenience functions on top of "Yogurt.Mud".
-module Yogurt.Utils (
+module Network.Yogurt.Utils (
   -- * Re-exports
-  module Yogurt.Mud,
+  module Network.Yogurt.Mud,
 
   -- * Hook and timer derivatives
   mkTrigger, mkTriggerOnce,
@@ -22,7 +22,7 @@ module Yogurt.Utils (
 
   ) where
 
-import Yogurt.Mud
+import Network.Yogurt.Mud
 import qualified System.Cmd as Cmd
 import System.IO.Unsafe
 import Data.Time.Format (formatTime)

@@ -1,8 +1,8 @@
 default:
-	ghci -isrc NewMoon
+	ghci NewMoon
 
 nm:
-	runghc -isrc NewMoon
+	runghc NewMoon
 
 docs:
 	mkdir docs

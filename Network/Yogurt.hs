@@ -1,8 +1,8 @@
--- | Re-exports Yogurt.Mud and Yogurt.Engine.
-module Yogurt (
-  module Yogurt.Mud,
-  module Yogurt.Engine
+-- | Re-exports Network.Yogurt.Mud and Network.Yogurt.Engine.
+module Network.Yogurt (
+  module Network.Yogurt.Mud,
+  module Network.Yogurt.Engine
   ) where
 
-import Yogurt.Mud
-import Yogurt.Engine
+import Network.Yogurt.Mud
+import Network.Yogurt.Engine

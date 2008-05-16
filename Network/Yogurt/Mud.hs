@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
 -- | The core of Yogurt, consisting of the Mud monad and all functions manipulating this monad.
-module Yogurt.Mud (
+module Network.Yogurt.Mud (
 
   -- * Types
   Mud, MudState, emptyMud,
@@ -43,7 +43,7 @@ import Prelude hiding (lookup)
 import Data.IntMap (IntMap, empty, insert, delete, lookup, elems, member)
 import Unsafe.Coerce
 import Text.Regex.Posix
-import Yogurt.Ansi
+import Network.Yogurt.Ansi
 import Control.Monad.State
 import Data.List (sortBy)
 import Data.Function (on)

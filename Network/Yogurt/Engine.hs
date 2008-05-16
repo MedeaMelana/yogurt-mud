@@ -1,12 +1,12 @@
-module Yogurt.Engine (connect, Environment, runMud) where
+module Network.Yogurt.Engine (connect, Environment, runMud) where
 
-import Yogurt.Mud
+import Network.Yogurt.Mud
 import System.IO
 import Network
 import Control.Concurrent
 import Control.Monad.State
 import System.Console.Readline
-import Yogurt.IO
+import Network.Yogurt.IO
 import Data.Char (isSpace)
 
 

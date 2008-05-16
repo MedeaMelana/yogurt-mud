@@ -2,8 +2,8 @@
 
 module Main where
 
-import Yogurt
-import Yogurt.Utils
+import Network.Yogurt
+import Network.Yogurt.Utils
 import Data.Char (isSpace, isDigit)
 
 main :: IO ()

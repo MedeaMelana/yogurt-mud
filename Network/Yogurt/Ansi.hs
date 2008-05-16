@@ -1,6 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 
-module Yogurt.Ansi (rmAnsi) where
+module Network.Yogurt.Ansi (rmAnsi) where
 
 -- Removes ANSI sequences from a string.
 rmAnsi :: String -> String
