@@ -92,17 +92,17 @@ executeResult env@(h, _) res = case res of
       x <- io
       runMud env (actf x)
 
-    NewTimer timer interval -> do
-      forkIO (runTimer env timer interval)
+    NewTimer timer -> do
+      forkIO (runTimer env timer)
       return ()
 
 
 -- Called whenever a new timer is created.
-runTimer :: Environment -> Timer -> Interval -> IO ()
-runTimer env@(h, vState) timer interval = loop where
+runTimer :: Environment -> Timer -> IO ()
+runTimer env@(h, vState) timer = loop where
   loop = do
     -- Sleep.
-    threadDelay (1000 * interval)  -- interval in ms, threadDelay expects micros
+    threadDelay (1000 * tInterval timer)  -- interval in ms, threadDelay expects micros
 
     -- Execute timer action only if timer hasn't been removed in the meantime.
     ok <- runMud env (existsTimer timer)

@@ -28,7 +28,7 @@ module Yogurt.Mud (
 
   -- * Timers
   mkTimer, rmTimer, existsTimer, allTimers,
-  tAction,
+  tAction, tInterval,
 
   -- * Triggering hooks
   trigger, io, flushResults,
@@ -102,7 +102,8 @@ data Opaque = forall a. Opaque a
 -- | The abstract Timer type.
 data Timer = Timer
   { tId     :: Int
-  , tAction :: Mud ()  -- ^ Yields the timer's action.
+  , tAction :: Mud ()      -- ^ Yields the timer's action.
+  , tInterval :: Interval  -- ^ Yields the timer's interval.
   }
 
 -- | Interval in milliseconds.
@@ -112,7 +113,7 @@ type Interval = Int
 data Result
   = Send Destination String  -- no implicit newlines!
   | forall a. RunIO (IO a) (a -> Mud ())
-  | NewTimer Timer Interval
+  | NewTimer Timer
 
 
 
@@ -234,21 +235,21 @@ modifyVar var f = readVar var >>= setVar var . f
 mkTimer :: Interval -> Mud a -> Mud Timer
 mkTimer interval prog = do
   i <- mkId
-  let timer = Timer i (prog >> return ())
+  let timer = Timer i (prog >> return ()) interval
   updateTimers $ insert i timer
-  addResult (NewTimer timer interval)
+  addResult (NewTimer timer)
   return timer
 
--- | Disables the timer.
+-- | Disables the timer. Returns False if the timer was already disabled.
 rmTimer :: Timer -> Mud Bool
-rmTimer (Timer ti _) = do
+rmTimer (Timer ti _ _) = do
   b <- gets (member ti . timers)
   updateTimers $ delete ti
   return b
 
 -- | Checks whether a timer is active.
 existsTimer :: Timer -> Mud Bool
-existsTimer (Timer ti _) = gets (member ti . timers)
+existsTimer (Timer ti _ _) = gets (member ti . timers)
 
 -- | Yields all currently active timers.
 allTimers :: Mud [Timer]
