@@ -8,5 +8,5 @@ Category:       Network
 Synopsis:       A MUD client library for Haskell
 
 Library
-  Build-Depends:    base
-  Exposed-modules:  Yogurt, Yogurt.Mud, Yogurt.Utils, Yogurt.Engine
+  Build-Depends:    base, mtl, regex-posix, containers, time, old-locale, process, readline, network
+  Exposed-modules:  Network.Yogurt, Network.Yogurt.Mud, Network.Yogurt.Utils, Network.Yogurt.Engine
