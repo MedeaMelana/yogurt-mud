@@ -10,7 +10,7 @@ main :: IO ()
 main = connect "eclipse.cs.pdx.edu" 7680 newmoon
 
 newmoon :: Mud ()
-newmoon = do
+newmoon = mdo
   mkTriggerOnce "^Enter your name:" $ do
     sendln "medea"
   mkTriggerOnce "^Medea enters the game" $ do
@@ -45,10 +45,10 @@ newmoon = do
     h <- mkCommand "_stop" (rmTimer t       >> rmHook h)
     return ()
 
-  mkPrioHook 5 Remote "^(.*);(.*)$" $ do
-    group 1 >>= sendln
-    group 2 >>= sendln
-  
+  mkPrioHook 5 Remote "(^|^.*[^\\]);(.*)$" $ do
+    group 1 >>= matchMoreOn' . (++ "\n")
+    group 2 >>= matchMoreOn  . (++ "\n")
+
   mkCommand "lshooks" $ do
     hs <- allHooks
     echoln $ unlines $ map show hs

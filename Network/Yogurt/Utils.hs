@@ -11,13 +11,13 @@ module Network.Yogurt.Utils (
   mkTimerOnce,
 
   -- * Sending messages
-  receive, sendln, echo, echoln, echorln,
+  receive, sendln, echo, echoln, echorln, bell,
 
   -- * Logging
   Logger, startLogging, stopLogging,
 
   -- * Miscellaneous
-  matchMore,
+  matchMore, matchMoreOn, matchMoreOn',
   system
 
   ) where
@@ -91,6 +91,10 @@ echoln m = echo (m ++ "\n")
 echorln :: String -> Mud ()
 echorln m = io Remote (m ++ "\n")
 
+-- | Sends a bell character to the terminal.
+bell :: Mud ()
+bell = echo "\BEL"
+
 
 
 -- Logging.
@@ -122,14 +126,21 @@ stopLogging (r, l) = do
 -- Miscellaneous.
 
 
--- | When called from a hook body, causes matching to continue (using 'trigger') on the currently triggering message. The firing hook won't fire again on this specific message.
+-- | When called from a hook body, gives hooks that haven't been considered yet a chance to match on the currently triggering message. Useful if you want to build a hook that only has a side-effect and doesn't want to directly affect the other active hooks.
 matchMore :: Mud ()
-matchMore = do
+matchMore = matchedLine >>= matchMoreOn
+
+-- | Like 'matchMore', but allows specification of the message that is passed on.
+matchMoreOn :: String -> Mud ()
+matchMoreOn message = do
   h <- triggeredHook
-  m <- matchedLine
-  rmHook h
-  trigger (hDestination h) m
-  setHook h
+  triggerJust (> h) (hDestination h) message
+
+-- | Like 'matchMoreOn', but also makes the currently firing hook eligible for firing again.
+matchMoreOn' :: String -> Mud ()
+matchMoreOn' message = do
+  h <- triggeredHook
+  triggerJust (>= h) (hDestination h) message
 
 -- | Executes a shell command.
 system :: String -> Mud ()

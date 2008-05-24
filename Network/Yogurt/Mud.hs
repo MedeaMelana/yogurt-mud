@@ -32,7 +32,7 @@ module Network.Yogurt.Mud (
   tAction, tInterval,
 
   -- * Triggering hooks
-  trigger, io, flushResults,
+  trigger, triggerJust, io, flushResults,
 
   -- * IO
   withIO, runIO
@@ -45,7 +45,7 @@ import Unsafe.Coerce
 import Text.Regex.Posix
 import Network.Yogurt.Ansi
 import Control.Monad.State
-import Data.List (sortBy)
+import Data.List (sort)
 import Data.Function (on)
 import Data.Ord (comparing)
 
@@ -71,14 +71,29 @@ data MudState = MudState
 emptyMud :: MudState
 emptyMud = MudState empty empty empty [0..] Nothing []
 
--- | The abstract Hook type.
+-- | The abstract Hook type. Two hooks are considered equal if they were created (using 'mkHook') at the same time. Hook h1 < hook h2 if h1 will match earlier than h2.
 data Hook = Hook
-  { hId         :: Int
+  { hId          :: Int
   , hPriority    :: Int          -- ^ Yields the hook's priority. 
   , hDestination :: Destination  -- ^ Yields the destination this hook watches.
   , hPattern     :: Pattern      -- ^ Yields the pattern messages must have for this hook to fire.
   , hAction      :: Mud ()       -- ^ Yields the Mud program to execute when the hook fires.
   }
+
+instance Eq Hook where
+  h1 == h2 = hId h1 == hId h2
+
+instance Ord Hook where
+  compare h1 h2 = rev $
+    case compare (hPriority h1) (hPriority h2) of
+      EQ -> compare (hId h1) (hId h2)
+      x  -> x
+
+rev :: Ordering -> Ordering
+rev x = case x of
+  LT -> GT
+  EQ -> EQ
+  GT -> LT
 
 instance Show Hook where
   show (Hook hid prio dest pat _) = "Hook #" ++ show hid ++ " @" ++ show prio ++ " " ++ show dest ++ " [" ++ pat ++ "]"
@@ -173,7 +188,7 @@ rmHook = updateHooks . delete . hId
 
 -- | Yields all current hooks in preferred firing order.
 allHooks :: Mud [Hook]
-allHooks = gets (reverse . sortBy (comparing hPriority) . elems . hooks)
+allHooks = gets (sort . elems . hooks)
 
 
 
@@ -258,16 +273,19 @@ allTimers = gets (elems . timers)
 
 -- Section: Triggering hooks
 
-
--- | If the message triggers a hook, it is fired. Otherwise, the message is passed on to the destination using 'io'.
+-- | Short for @'triggerJust' (const True)@.
 trigger :: Destination -> String -> Mud ()
-trigger dest message = do
+trigger = triggerJust (const True)
+
+-- | If the message triggers a hook that passes the specified test, it is fired. Otherwise, the message is passed on to the destination using 'io'.
+triggerJust :: (Hook -> Bool) -> Destination -> String -> Mud ()
+triggerJust test dest message = do
     hs <- allHooks
     case filter ok hs of
       []       -> io dest message
       (hook:_) -> fire message hook
   where
-    ok hook = hDestination hook == dest && rmAnsi message =~ hPattern hook
+    ok hook = test hook && hDestination hook == dest && rmAnsi message =~ hPattern hook
 
 -- | Executes the hook's action based on the matching message.
 fire :: String -> Hook -> Mud ()
