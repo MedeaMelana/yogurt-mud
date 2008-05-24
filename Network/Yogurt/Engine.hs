@@ -16,7 +16,7 @@ type Environment = (Output, MVar MudState)
 -- | Provides a way to output messages.
 type Output = Destination -> String -> IO ()
 
--- | Connects to a MUD and executes the specified program.
+-- | @connect hostname port program@ connects to a MUD and executes the specified program. Input is read from @stdin@, and output is written to @stdout@.
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = do
   -- Connect.
