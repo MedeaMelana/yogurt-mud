@@ -1,4 +1,4 @@
-module Network.Yogurt.Engine (connect, Environment, runMud) where
+module Network.Yogurt.Engine (connect, Environment, Output, runMud) where
 
 import Network.Yogurt.Mud
 import System.IO
@@ -10,9 +10,11 @@ import Network.Yogurt.IO
 import Data.Char (isSpace)
 
 
--- | Data that is manipulated and passed around during execution. The Handle belongs to the telnet connection; the MVar contains the current MudState.
-type Environment = (Handle, MVar MudState)
+-- | Used by 'runMud' to output messages and update the state during execution.
+type Environment = (Output, MVar MudState)
 
+-- | Provides a way to output messages.
+type Output = Destination -> String -> IO ()
 
 -- | Connects to a MUD and executes the specified program.
 connect :: String -> Int -> Mud () -> IO ()
@@ -25,7 +27,10 @@ connect host port mud = do
   vState <- newMVar (execState mud emptyMud)
 
   -- Start child threads.
-  let env = (h, vState)
+  let out ch msg = case ch of
+        Local  -> writeToTTY msg
+        Remote -> do hPutStr h msg; hFlush h
+  let env = (out, vState)
   forkIO (handleSource env localInput Remote)
   handleSource env (remoteInput h) Local
 
@@ -82,25 +87,26 @@ executeResults env = sequence_ . map (executeResult env)
 
 -- Executes one result.
 executeResult :: Environment -> Result -> IO ()
-executeResult env@(h, _) res = case res of
+executeResult env@(out, _) res = case res of
 
-    Send ch msg ->
-      case ch of
-        Local  -> writeToTTY msg
-        Remote -> do hPutStr h msg; hFlush h
+    Send ch msg -> do
+      -- debug $ "Send " ++ show ch ++ " " ++ show msg
+      out ch msg
 
     RunIO io actf -> do
+      -- debug "RunIO"
       x <- io
       runMud env (actf x)
 
     NewTimer timer -> do
+      -- debug "NewTimer"
       forkIO (runTimer env timer)
       return ()
 
 
 -- Called whenever a new timer is created.
 runTimer :: Environment -> Timer -> IO ()
-runTimer env@(h, vState) timer = loop where
+runTimer env timer = loop where
   loop = do
     -- Sleep.
     threadDelay (1000 * tInterval timer)  -- interval in ms, threadDelay expects micros
@@ -112,3 +118,6 @@ runTimer env@(h, vState) timer = loop where
     -- Maybe the timer's action removed the timer. If not, run again.
     again <- runMud env (existsTimer timer)
     when again loop
+
+debug :: String -> IO ()
+debug = appendFile "debug.log" . (++ "\n")
