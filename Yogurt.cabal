@@ -1,7 +1,8 @@
 Name:           Yogurt
 Version:        0.1
 Cabal-Version:  >= 1.2
-License:        LGPL
+License:        BSD3
+License-file:   LICENSE
 Author:         Martijn van Steenbergen
 Homepage:       http://martijn.van.steenbergen.nl/projects/yogurt/
 Category:       Network

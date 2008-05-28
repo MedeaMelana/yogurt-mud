@@ -1,6 +1,11 @@
 default:
 	ghci NewMoon
 
+package: clean
+	mkdir build
+	cp Yogurt.cabal Setup.hs build
+	rsync --recursive --exclude .svn Network build
+
 nm:
 	runghc NewMoon
 
@@ -11,8 +16,8 @@ docs:
 
 clean:
 	find . -name '*.hi' -or -name '*.o' | xargs -n 1 rm
-	rm -rf docs dist
+	rm -rf docs dist build
 
-package:
-	tar cvf Yogurt-0.1.tar Network Yogurt.cabal Setup.hs
-	gzip Yogurt-0.1.tar
+#package:
+#	tar cvf Yogurt-0.1.tar Network Yogurt.cabal Setup.hs
+#	gzip Yogurt-0.1.tar
