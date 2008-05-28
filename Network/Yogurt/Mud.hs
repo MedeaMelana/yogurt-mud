@@ -160,7 +160,7 @@ updateTimers f = modify $ \s -> s { timers = f (timers s) }
 addResult :: Result -> Mud ()
 addResult r = modify $ \s -> s { results = results s ++ [r] }
 
--- | Yields all accumulated results and removes them from the state. Used by "Yogurt.Engine" in the main loop.
+-- | Yields all accumulated results and removes them from the state. Used by "Network.Yogurt.Engine" in @runMud@.
 flushResults :: Mud [Result]
 flushResults = do
   rs <- gets results
@@ -223,7 +223,7 @@ matchedLine = fmap mMatchedLine getMatchInfo
 before :: Mud String
 before = fmap mBefore getMatchInfo
 
--- | Yields the regex group from the matched pattern.
+-- | Yields the regex group from the matched pattern. @group 0@ yields the complete match; higher indices correspond to the parenthesized groups.
 group :: Int -> Mud String
 group n = fmap ((!! n) . mGroups) getMatchInfo
 
