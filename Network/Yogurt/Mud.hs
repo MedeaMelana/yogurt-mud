@@ -21,7 +21,7 @@ module Network.Yogurt.Mud (
 
   -- * Match information
   -- | #MatchInformation# Functions for querying the currently firing hook. These functions should only be called from within a hook's body.
-  triggeredHook, matchedLine, group,
+  triggeredHook, matchedLine, before, group, after,
 
   -- * Variables
   mkVar, setVar, readVar, modifyVar,
@@ -107,7 +107,13 @@ data Destination
 -- | A Pattern is a regular expression.
 type Pattern = String
 
-type MatchInfo = (Hook, String, [String]) -- Triggered hook; matched input line; regex groups.
+data MatchInfo = MatchInfo
+  { mTriggeredHook :: Hook
+  , mMatchedLine   :: String
+  , mBefore        :: String
+  , mGroups        :: [String]
+  , mAfter         :: String
+  }
 
 -- | Variables hold temporary, updatable, typed data.
 data Var a = Var Int
@@ -207,16 +213,23 @@ getMatchInfo = do
 
 -- | Yields the hook that is currently firing.
 triggeredHook :: Mud Hook
-triggeredHook = getMatchInfo >>= return . (\(x,_,_) -> x)
+triggeredHook = fmap mTriggeredHook getMatchInfo
 
 -- | Yields the message that triggered the currently firing hook.
 matchedLine :: Mud String
-matchedLine = getMatchInfo >>= return . (\(_,x,_) -> x)
+matchedLine = fmap mMatchedLine getMatchInfo
 
--- | Yields the regex group from the matched line.
+-- | Yields the part of the triggering message that comes before the matched pattern.
+before :: Mud String
+before = fmap mBefore getMatchInfo
+
+-- | Yields the regex group from the matched pattern.
 group :: Int -> Mud String
-group n = getMatchInfo >>= (return . (!! n) . (\(_,_,x) -> x))
+group n = fmap ((!! n) . mGroups) getMatchInfo
 
+-- | Yields the part of the triggering message that comes after the matched pattern.
+after :: Mud String
+after = fmap mAfter getMatchInfo
 
 
 -- Section: Variables.
@@ -291,11 +304,11 @@ triggerJust test dest message = do
 fire :: String -> Hook -> Mud ()
 fire message hook = do
     oldMatchInfo <- gets matchInfo
-    setMatchInfo $ Just (hook, message, match : groups)
+    setMatchInfo $ Just $ MatchInfo hook message before (match : groups) after
     hAction hook
     setMatchInfo oldMatchInfo
   where
-    (_, match, _, groups) = rmAnsi message =~ hPattern hook :: (String, String, String, [String])
+    (before, match, after, groups) = rmAnsi message =~ hPattern hook :: (String, String, String, [String])
 
 -- | Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
