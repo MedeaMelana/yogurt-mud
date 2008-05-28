@@ -11,7 +11,7 @@ docs:
 
 clean:
 	find . -name '*.hi' -or -name '*.o' | xargs -n 1 rm
-	rm -rf docs
+	rm -rf docs dist
 
 package:
 	tar cvf Yogurt-0.1.tar Network Yogurt.cabal Setup.hs
