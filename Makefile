@@ -1,11 +1,12 @@
 default:
 	ghci NewMoon
 
-package: clean
-	mkdir build
-	cp Setup.hs build
-	./mkcabal
-	rsync --recursive --exclude .svn Network build
+tag = $(shell svn info | grep URL | sed 's/^.*Yogurt-//g')
+
+package: build
+	sed "s/@tag/$(tag)/g" < Yogurt.cabal-template > Yogurt.cabal
+	runghc Setup configure
+	runghc Setup sdist
 
 nm:
 	runghc NewMoon
