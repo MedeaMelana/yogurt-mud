@@ -3,7 +3,7 @@ default:
 
 tag = $(shell svn info | grep URL | sed 's/^.*Yogurt-//g')
 
-package: build
+package:
 	sed "s/@tag/$(tag)/g" < Yogurt.cabal-template > Yogurt.cabal
 	runghc Setup configure
 	runghc Setup sdist
