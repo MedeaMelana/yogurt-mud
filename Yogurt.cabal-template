@@ -4,9 +4,11 @@ Cabal-Version:  >= 1.2
 License:        BSD3
 License-file:   LICENSE
 Author:         Martijn van Steenbergen
+Maintainer:     martijn@van.steenbergen.nl
+Description:    A MUD client library for Haskell. Features prioritized, regex-based hooks, variables and timers.
 Homepage:       http://martijn.van.steenbergen.nl/projects/yogurt/
 Category:       Network
-Synopsis:       A MUD client library for Haskell
+Build-type:     Simple
 
 Library
   Build-Depends:    base, mtl, regex-posix, containers, time, old-locale, process, readline, network
