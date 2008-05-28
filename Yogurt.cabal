@@ -1,0 +1,13 @@
+Name:           Yogurt
+Version:        0.1
+Cabal-Version:  >= 1.2
+License:        BSD3
+License-file:   LICENSE
+Author:         Martijn van Steenbergen
+Homepage:       http://martijn.van.steenbergen.nl/projects/yogurt/
+Category:       Network
+Synopsis:       A MUD client library for Haskell
+
+Library
+  Build-Depends:    base, mtl, regex-posix, containers, time, old-locale, process, readline, network
+  Exposed-modules:  Network.Yogurt, Network.Yogurt.Mud, Network.Yogurt.Utils, Network.Yogurt.Engine
