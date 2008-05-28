@@ -7,6 +7,7 @@ Author:         Martijn van Steenbergen
 Homepage:       http://martijn.van.steenbergen.nl/projects/yogurt/
 Category:       Network
 Synopsis:       A MUD client library for Haskell
+Build-type:     Simple
 
 Library
   Build-Depends:    base, mtl, regex-posix, containers, time, old-locale, process, readline, network
