@@ -1,5 +1,5 @@
 Name:           Yogurt
-Version:        0.1
+Version:        @tag
 Cabal-Version:  >= 1.2
 License:        BSD3
 License-file:   LICENSE

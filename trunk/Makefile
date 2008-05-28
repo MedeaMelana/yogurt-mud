@@ -3,7 +3,9 @@ default:
 
 package: clean
 	mkdir build
-	cp Yogurt.cabal Setup.hs build
+	cp Setup.hs build
+	tag=$( svn info | grep URL | sed 's/^.*Yogurt-//g' )
+	sed "s/@tag/${tag}/g" < Yogurt.cabal > build/Yogurt.cabal
 	rsync --recursive --exclude .svn Network build
 
 nm:
