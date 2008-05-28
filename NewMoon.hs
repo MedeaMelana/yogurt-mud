@@ -45,9 +45,9 @@ newmoon = mdo
     h <- mkCommand "_stop" (rmTimer t       >> rmHook h)
     return ()
 
-  mkPrioHook 5 Remote "(^|^.*[^\\]);(.*)$" $ do
-    group 1 >>= matchMoreOn' . (++ "\n")
-    group 2 >>= matchMoreOn  . (++ "\n")
+  mkPrioHook 200 Remote ";" $ do
+    before >>= matchMoreOn  . (++ "\n")
+    after  >>= matchMoreOn'
 
   mkCommand "lshooks" $ do
     hs <- allHooks
