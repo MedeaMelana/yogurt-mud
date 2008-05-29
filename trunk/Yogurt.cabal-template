@@ -5,7 +5,9 @@ License:        BSD3
 License-file:   LICENSE
 Author:         Martijn van Steenbergen
 Maintainer:     martijn@van.steenbergen.nl
+Copyright:	Copyright (c) 2008 Martijn van Steenbergen
 Description:    A MUD client library for Haskell. Features prioritized, regex-based hooks, variables and timers.
+Synopsis:	A MUD client library
 Homepage:       http://martijn.van.steenbergen.nl/projects/yogurt/
 Category:       Network
 Build-type:     Simple
