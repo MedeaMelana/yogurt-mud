@@ -42,7 +42,7 @@ module Network.Yogurt.Mud (
 import Prelude hiding (lookup)
 import Data.IntMap (IntMap, empty, insert, delete, lookup, elems, member)
 import Unsafe.Coerce
-import Text.Regex.Posix
+import Text.Regex.Posix ((=~))
 import Network.Yogurt.Ansi
 import Control.Monad.State
 import Data.List (sort)
