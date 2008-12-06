@@ -1,0 +1,4 @@
+#summary Yogurt's version history
+
+  * 0.1—Initial publication!
+  * 0.2—Immediate follow-up to fix build error on hackage.
