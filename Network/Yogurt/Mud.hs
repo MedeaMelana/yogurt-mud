@@ -249,8 +249,9 @@ setVar (Var i) val = updateVars $ insert i (Opaque val)
 readVar :: Var a -> Mud a
 readVar (Var i) = do
   varmap <- gets vars
-  Opaque val <- lookup i varmap
-  return (unsafeCoerce val)
+  -- lookup shouldn't fail -- variables cannot be removed (yet)
+  let Just wrap = lookup i varmap
+  return $ case wrap of Opaque v -> unsafeCoerce v
 
 -- | Updates the variable using the update function.
 modifyVar :: Var a -> (a -> a) -> Mud ()
