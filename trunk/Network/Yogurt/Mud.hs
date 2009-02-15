@@ -48,6 +48,7 @@ import Control.Monad.State
 import Data.List (sort)
 import Data.Function (on)
 import Data.Ord (comparing)
+import Data.Monoid (mconcat)
 
 
 
@@ -81,13 +82,10 @@ data Hook = Hook
   }
 
 instance Eq Hook where
-  h1 == h2 = hId h1 == hId h2
+  (==) = (==) `on` hId
 
 instance Ord Hook where
-  compare h1 h2 = rev $
-    case compare (hPriority h1) (hPriority h2) of
-      EQ -> compare (hId h1) (hId h2)
-      x  -> x
+  compare = flip $ mconcat [comparing hPriority, comparing hId]
 
 rev :: Ordering -> Ordering
 rev x = case x of
@@ -243,7 +241,7 @@ mkVar val = do
 
 -- | Updates a variable to a new value.
 setVar :: Var a -> a -> Mud ()
-setVar (Var i) val = updateVars $ insert i (Opaque val)
+setVar (Var i) = updateVars . insert i . Opaque
 
 -- | Yields the variable's current value.
 readVar :: Var a -> Mud a
@@ -313,7 +311,7 @@ fire message hook = do
 
 -- | Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
-io ch message = addResult (Send ch message)
+io ch = addResult . Send ch
 
 
 
@@ -326,4 +324,4 @@ runIO io = withIO io (const $ return ())
 
 -- | Executes the IO action soon. The computation's result is passed to the function, and the resulting Mud computation is executed.
 withIO :: IO a -> (a -> Mud ()) -> Mud ()
-withIO io act = addResult (RunIO io act)
+withIO io = addResult . RunIO io
