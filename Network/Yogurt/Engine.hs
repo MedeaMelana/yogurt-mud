@@ -25,7 +25,8 @@ connect host port mud = do
   h <- connectTo host (PortNumber (fromIntegral port))
 
   -- Create shared mud state, executing initial commands.
-  vState <- newMVar (execState mud emptyMud)
+  state0 <- execStateT mud emptyMud
+  vState <- newMVar state0
 
   -- Start child threads.
   let out ch msg = case ch of
@@ -75,8 +76,8 @@ remoteInput h = do
 runMud :: Environment -> Mud a -> IO a
 runMud env@(_, vState) prog = do
   s1 <- takeMVar vState
-  let (rv, s2) = runState prog s1
-  let (rs, s3) = runState flushResults s2
+  (rv, s2) <- runStateT prog s1
+  (rs, s3) <- runStateT flushResults s2
   putMVar vState s3
   executeResults env rs
   return rv
