@@ -1,3 +1,5 @@
+{-# LANGUAGE RecursiveDo #-}
+
 module Network.Yogurt.Engine (connect, Environment, Output, runMud) where
 
 import Network.Yogurt.Mud
@@ -19,13 +21,13 @@ type Output = Destination -> String -> IO ()
 
 -- | @connect hostname port program@ connects to a MUD and executes the specified program. Input is read from @stdin@, and output is written to @stdout@.
 connect :: String -> Int -> Mud () -> IO ()
-connect host port mud = do
+connect host port mud = mdo
   -- Connect.
   putStrLn $ "Connecting to " ++ host ++ " port " ++ show port ++ "..."
   h <- connectTo host (PortNumber (fromIntegral port))
 
   -- Create shared mud state, executing initial commands.
-  state0 <- execStateT mud emptyMud
+  state0 <- execStateT mud (emptyMud (runMud env))
   vState <- newMVar state0
 
   -- Start child threads.
@@ -91,36 +93,5 @@ executeResults env = sequence_ . map (executeResult env)
 -- Executes one result.
 executeResult :: Environment -> Result -> IO ()
 executeResult env@(out, _) res = case res of
-
     Send ch msg -> do
-      -- debug $ "Send " ++ show ch ++ " " ++ show msg
       out ch msg
-
-    -- RunIO io actf -> do
-    --   -- debug "RunIO"
-    --   x <- io
-    --   runMud env (actf x)
-
-    NewTimer timer -> do
-      -- debug "NewTimer"
-      forkIO (runTimer env timer)
-      return ()
-
-
--- Called whenever a new timer is created.
-runTimer :: Environment -> Timer -> IO ()
-runTimer env timer = loop where
-  loop = do
-    -- Sleep.
-    threadDelay (1000 * tInterval timer)  -- interval in ms, threadDelay expects micros
-
-    -- Execute timer action only if timer hasn't been removed in the meantime.
-    ok <- runMud env (existsTimer timer)
-    when ok (runMud env $ tAction timer)
-
-    -- Maybe the timer's action removed the timer. If not, run again.
-    again <- runMud env (existsTimer timer)
-    when again loop
-
-debug :: String -> IO ()
-debug = appendFile "debug.log" . (++ "\n")

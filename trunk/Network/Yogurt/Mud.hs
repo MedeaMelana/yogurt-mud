@@ -4,42 +4,40 @@
 module Network.Yogurt.Mud (
 
   -- * Types
-  Mud, MudState, emptyMud,
+  Mud, MudState, emptyMud, RunMud,
   Hook,
   Destination(..),
   Pattern,
-  Timer, Interval,
   Var,
   Result(..),
 
   -- * Hooks
-  -- | A hook watches a channel for messages matching a specific regular expression. When a hook fires, the triggering message is consumed and the hook's action is executed. When a message doesn't trigger any hooks, it is sent on to its destination. A hook's action may query for match-specific data; see section Match Information. At most one hook fires for each message, unless the hook's action explicitly sends the message through 'trigger' again. If several hooks match, only the hook with the highest priority fires. If there is still a tie, the hook that was defined last (using 'mkHook') fires.
+  -- | A hook watches a channel for messages matching a specific regular expression.
+  -- When a hook fires, the triggering message is consumed and the hook's action is executed.
+  -- When a message doesn't trigger any hooks, it is sent on to its destination.
+  -- A hook's action may query for match-specific data; see section Match information.
+  -- At most one hook fires for each message, unless the hook's action explicitly sends the message through 'trigger' again. If several hooks match, only the hook with the highest priority fires. If there is still a tie, the hook that was defined last (using 'mkHook') fires.
   mkHook, mkPrioHook, setHook, rmHook, allHooks,
   
   -- ** Hook record fields
   -- | Use these in combination with 'setHook' to update hooks.
   hPriority, hDestination, hPattern, hAction,
 
-  -- * Match information
-  -- | #MatchInformation# Functions for querying the currently firing hook. These functions should only be called from within a hook's body.
+  -- ** Match information
+  -- | #MatchInformation# Functions for querying the currently firing hook. These functions can only be called from within a hook's body.
   triggeredHook, matchedLine, before, group, after,
 
   -- * Variables
   mkVar, setVar, readVar, modifyVar,
 
-  -- * Timers
-  mkTimer, rmTimer, existsTimer, allTimers,
-  -- ** Timer record fields
-  tAction, tInterval,
-
   -- * Triggering hooks
   trigger, triggerJust, io, flushResults,
-  liftIO
+  liftIO, getRunMud
 
   ) where
 
 import Prelude hiding (lookup)
-import Data.IntMap (IntMap, empty, insert, delete, lookup, elems, member)
+import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
 import Unsafe.Coerce
 import Text.Regex.Posix ((=~))
 import Network.Yogurt.Ansi
@@ -54,24 +52,27 @@ import Data.Monoid (mconcat)
 -- Section: Types.
 
 
--- | The Mud monad is a simple state monad.
+-- | The Mud monad is a state monad over IO.
 type Mud = StateT MudState IO
+
+-- | Run a Mud computation in IO.
+type RunMud = forall a. Mud a -> IO a
 
 -- | State internal to the Mud monad.
 data MudState = MudState
   { hooks     :: IntMap Hook
   , vars      :: IntMap Opaque
-  , timers    :: IntMap Timer
   , supply    :: [Int]
   , matchInfo :: Maybe MatchInfo
   , results   :: [Result]
+  , mRunMud   :: RunMud
   }
 
 -- | The initial state of the Mud monad.
-emptyMud :: MudState
-emptyMud = MudState empty empty empty [0..] Nothing []
+emptyMud :: RunMud -> MudState
+emptyMud rm = MudState empty empty [0..] Nothing [] rm
 
--- | The abstract Hook type. Two hooks are considered equal if they were created (using 'mkHook') at the same time. Hook h1 < hook h2 if h1 will match earlier than h2.
+-- | The abstract Hook type. Two hooks are considered equal if they were created by the same call to 'mkHook'. Hook h1 < hook h2 if h1 will match earlier than h2.
 data Hook = Hook
   { hId          :: Int
   , hPriority    :: Int          -- ^ Yields the hook's priority. 
@@ -111,28 +112,17 @@ data Var a = Var Int
 
 data Opaque = forall a. Opaque a
 
--- Timers.
--- | The abstract Timer type.
-data Timer = Timer
-  { tId     :: Int
-  , tAction :: Mud ()      -- ^ Yields the timer's action.
-  , tInterval :: Interval  -- ^ Yields the timer's interval.
-  }
-
--- | Interval in milliseconds.
-type Interval = Int
-
 -- | A @Result@ is a consequence of executing a @Mud@ program.
-data Result
-  = Send Destination String  -- no implicit newlines!
-  | NewTimer Timer
+data Result = Send Destination String  -- no implicit newlines!
+
+type Id = Int
 
 
 
 -- Section: Helper functions for querying and manipulating state.
 
 
-mkId :: Mud Int
+mkId :: Mud Id
 mkId = do
   i <- gets (head . supply)
   modify $ \s -> s { supply = tail (supply s) }
@@ -143,9 +133,6 @@ updateHooks f = modify $ \s -> s { hooks = f (hooks s) }
 
 updateVars :: (IntMap Opaque -> IntMap Opaque) -> Mud ()
 updateVars f = modify $ \s -> s { vars = f (vars s) }
-
-updateTimers :: (IntMap Timer -> IntMap Timer) -> Mud ()
-updateTimers f = modify $ \s -> s { timers = f (timers s) }
 
 addResult :: Result -> Mud ()
 addResult r = modify $ \s -> s { results = results s ++ [r] }
@@ -249,32 +236,6 @@ modifyVar var f = readVar var >>= setVar var . f
 
 
 
--- Section: Timers.
-
-
--- | @mkTimer interval prog@ creates a timer that executes @prog@ every @interval@ milliseconds.
-mkTimer :: Interval -> Mud a -> Mud Timer
-mkTimer interval prog = do
-  i <- mkId
-  let timer = Timer i (prog >> return ()) interval
-  updateTimers $ insert i timer
-  addResult (NewTimer timer)
-  return timer
-
--- | Disables the timer.
-rmTimer :: Timer -> Mud ()
-rmTimer = updateTimers . delete . tId
-
--- | Checks whether a timer is active.
-existsTimer :: Timer -> Mud Bool
-existsTimer (Timer ti _ _) = gets (member ti . timers)
-
--- | Yields all currently active timers.
-allTimers :: Mud [Timer]
-allTimers = gets (elems . timers)
-
-
-
 -- Section: Triggering hooks
 
 -- | Short for @'triggerJust' (const True)@.
@@ -304,3 +265,9 @@ fire message hook = do
 -- | Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
 io ch = addResult . Send ch
+
+-- | Allows execution of Mud programs within the IO monad.
+getRunMud :: Mud RunMud
+getRunMud = do
+  s <- get
+  return (mRunMud s)

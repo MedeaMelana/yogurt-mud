@@ -8,7 +8,9 @@ module Network.Yogurt.Utils (
   -- * Hook and timer derivatives
   mkTrigger, mkTriggerOnce,
   mkAlias, mkArgAlias, mkCommand,
-  mkTimerOnce,
+
+  -- * Timers
+  Timer, Interval, mkTimer, mkTimerOnce, rmTimer, isTimerActive,
 
   -- * Sending messages
   receive, sendln, echo, echoln, echorln, bell,
@@ -22,13 +24,11 @@ module Network.Yogurt.Utils (
   ) where
 
 import Network.Yogurt.Mud
--- import qualified System.Cmd as Cmd
-import qualified System.Process as P
-import System.IO.Unsafe
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
 import Data.Time.LocalTime (getZonedTime)
-import Control.Monad.Trans
+import Control.Concurrent
+import Control.Monad
 
 
 
@@ -61,11 +61,51 @@ mkArgAlias pat f = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
 mkCommand :: String -> Mud a -> Mud Hook
 mkCommand pat = mkHook Remote ("^" ++ pat ++ "($| .*$)")
 
+
+
+-- Section: Timers.
+
+
+-- | The abstract Time type.
+newtype Timer = Timer (Var Bool)
+
+-- | Interval in milliseconds.
+type Interval = Int
+
+-- | @mkTimer interval prog@ creates a timer that executes @prog@ every @interval@ milliseconds.
+mkTimer :: Interval -> Mud a -> Mud Timer
+mkTimer interval prog = do
+    runMud <- getRunMud
+    vActive <- mkVar True
+    
+    let timerCycle = do
+          threadDelay (1000 * interval)  -- interval in ms, threadDelay expects micros
+
+          -- Execute timer action only if timer hasn't been deactivated in the meantime.
+          runMud $ do
+            active <- readVar vActive
+            when active (prog >> return ())
+
+          -- Maybe the timer's action removed the timer. If not, run again.
+          again <- runMud (readVar vActive)
+          when again timerCycle
+
+    liftIO $ forkIO timerCycle
+    return (Timer vActive)
+
 -- | Creates a timer that fires only once.
 mkTimerOnce :: Interval -> Mud a -> Mud Timer
 mkTimerOnce interval act = mdo
   t <- mkTimer interval (act >> rmTimer t)
   return t
+
+-- | Disables the timer.
+rmTimer :: Timer -> Mud ()
+rmTimer (Timer vActive) = setVar vActive False
+
+-- | Checks whether a timer is active. A timer is deactivated by 'rmTimer'.
+isTimerActive :: Timer -> Mud Bool
+isTimerActive (Timer vActive) = readVar vActive
 
 
 
