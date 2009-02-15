@@ -57,7 +57,7 @@ import Data.Monoid (mconcat)
 
 
 -- | The Mud monad is a simple state monad.
-type Mud = State MudState
+type Mud = StateT MudState IO
 
 -- | State internal to the Mud monad.
 data MudState = MudState
