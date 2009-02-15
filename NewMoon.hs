@@ -2,6 +2,8 @@
 
 module Main where
 
+import System.Process
+
 import Network.Yogurt
 import Network.Yogurt.Utils
 import Data.Char (isSpace, isDigit)
@@ -32,7 +34,7 @@ newmoon = mdo
 
   mkHook Remote "system (.*)" $ do
     command <- group 1
-    system command
+    liftIO $ runCommand command >>= waitForProcess
   
   mkHook Remote "^[0-9]+[neswud]$" $ do
     (n, dir) <- fmap (span isDigit) (group 0)

@@ -96,10 +96,10 @@ executeResult env@(out, _) res = case res of
       -- debug $ "Send " ++ show ch ++ " " ++ show msg
       out ch msg
 
-    RunIO io actf -> do
-      -- debug "RunIO"
-      x <- io
-      runMud env (actf x)
+    -- RunIO io actf -> do
+    --   -- debug "RunIO"
+    --   x <- io
+    --   runMud env (actf x)
 
     NewTimer timer -> do
       -- debug "NewTimer"
