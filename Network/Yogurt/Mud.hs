@@ -37,8 +37,7 @@ module Network.Yogurt.Mud (
   ) where
 
 import Prelude hiding (lookup)
-import Data.IntMap (IntMap, empty, insert, delete, lookup, elems)
-import Unsafe.Coerce
+import Data.IntMap (IntMap, empty, insert, delete, elems)
 import Text.Regex.Posix ((=~))
 import Network.Yogurt.Ansi
 import Control.Monad.State
@@ -46,6 +45,7 @@ import Data.List (sort)
 import Data.Function (on)
 import Data.Ord (comparing)
 import Data.Monoid (mconcat)
+import Data.IORef
 
 
 
@@ -61,7 +61,6 @@ type RunMud = forall a. Mud a -> IO a
 -- | State internal to the Mud monad.
 data MudState = MudState
   { hooks     :: IntMap Hook
-  , vars      :: IntMap Opaque
   , supply    :: [Int]
   , matchInfo :: Maybe MatchInfo
   , results   :: [Result]
@@ -70,7 +69,7 @@ data MudState = MudState
 
 -- | The initial state of the Mud monad.
 emptyMud :: RunMud -> MudState
-emptyMud rm = MudState empty empty [0..] Nothing [] rm
+emptyMud rm = MudState empty [0..] Nothing [] rm
 
 -- | The abstract Hook type. Two hooks are considered equal if they were created by the same call to 'mkHook'. Hook h1 < hook h2 if h1 will match earlier than h2.
 data Hook = Hook
@@ -108,9 +107,7 @@ data MatchInfo = MatchInfo
   }
 
 -- | Variables hold temporary, updatable, typed data.
-data Var a = Var Int
-
-data Opaque = forall a. Opaque a
+newtype Var a = Var (IORef a)
 
 -- | A @Result@ is a consequence of executing a @Mud@ program.
 data Result = Send Destination String  -- no implicit newlines!
@@ -130,9 +127,6 @@ mkId = do
 
 updateHooks :: (IntMap Hook -> IntMap Hook) -> Mud ()
 updateHooks f = modify $ \s -> s { hooks = f (hooks s) }
-
-updateVars :: (IntMap Opaque -> IntMap Opaque) -> Mud ()
-updateVars f = modify $ \s -> s { vars = f (vars s) }
 
 addResult :: Result -> Mud ()
 addResult r = modify $ \s -> s { results = results s ++ [r] }
@@ -209,30 +203,24 @@ after :: Mud String
 after = fmap mAfter getMatchInfo
 
 
+
 -- Section: Variables.
 
 -- | Creates a variable with an initial value.
 mkVar :: a -> Mud (Var a)
-mkVar val = do
-  i <- mkId
-  setVar (Var i) val
-  return (Var i)
+mkVar val = liftM Var $ liftIO $ newIORef val
 
 -- | Updates a variable to a new value.
 setVar :: Var a -> a -> Mud ()
-setVar (Var i) = updateVars . insert i . Opaque
+setVar (Var var) val = liftIO $ writeIORef var val
 
 -- | Yields the variable's current value.
 readVar :: Var a -> Mud a
-readVar (Var i) = do
-  varmap <- gets vars
-  -- lookup shouldn't fail -- variables cannot be removed (yet)
-  let Just wrap = lookup i varmap
-  return $ case wrap of Opaque v -> unsafeCoerce v
+readVar (Var var) = liftIO $ readIORef var
 
 -- | Updates the variable using the update function.
 modifyVar :: Var a -> (a -> a) -> Mud ()
-modifyVar var f = readVar var >>= setVar var . f
+modifyVar (Var var) f = liftIO $ modifyIORef var f
 
 
 
