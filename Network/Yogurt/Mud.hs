@@ -9,7 +9,7 @@ module Network.Yogurt.Mud (
   Destination(..),
   Pattern,
   Var,
-  Result(..),
+  Output,
 
   -- * Hooks
   -- | A hook watches a channel for messages matching a specific regular expression.
@@ -31,7 +31,7 @@ module Network.Yogurt.Mud (
   mkVar, setVar, readVar, modifyVar,
 
   -- * Triggering hooks
-  trigger, triggerJust, io, flushResults,
+  trigger, triggerJust, io,
   liftIO, getRunMud
 
   ) where
@@ -63,13 +63,13 @@ data MudState = MudState
   { hooks     :: IntMap Hook
   , supply    :: [Int]
   , matchInfo :: Maybe MatchInfo
-  , results   :: [Result]
   , mRunMud   :: RunMud
+  , mOutput   :: Output
   }
 
 -- | The initial state of the Mud monad.
-emptyMud :: RunMud -> MudState
-emptyMud rm = MudState empty [0..] Nothing [] rm
+emptyMud :: RunMud -> Output -> MudState
+emptyMud rm output = MudState empty [0..] Nothing rm output
 
 -- | The abstract Hook type. Two hooks are considered equal if they were created by the same call to 'mkHook'. Hook h1 < hook h2 if h1 will match earlier than h2.
 data Hook = Hook
@@ -109,10 +109,10 @@ data MatchInfo = MatchInfo
 -- | Variables hold temporary, updatable, typed data.
 newtype Var a = Var (IORef a)
 
--- | A @Result@ is a consequence of executing a @Mud@ program.
-data Result = Send Destination String  -- no implicit newlines!
-
 type Id = Int
+
+-- | Provides a way to output messages.
+type Output = Destination -> String -> IO ()
 
 
 
@@ -127,16 +127,6 @@ mkId = do
 
 updateHooks :: (IntMap Hook -> IntMap Hook) -> Mud ()
 updateHooks f = modify $ \s -> s { hooks = f (hooks s) }
-
-addResult :: Result -> Mud ()
-addResult r = modify $ \s -> s { results = results s ++ [r] }
-
--- | Yields all accumulated results and removes them from the state. Used by "Network.Yogurt.Engine" in @runMud@.
-flushResults :: Mud [Result]
-flushResults = do
-  rs <- gets results
-  modify $ \s -> s { results = [] }
-  return rs
 
 
 
@@ -252,7 +242,10 @@ fire message hook = do
 
 -- | Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
-io ch = addResult . Send ch
+-- io ch = addResult . Send ch
+io to msg = do
+  out <- gets mOutput
+  liftIO $ out to msg
 
 -- | Allows execution of Mud programs within the IO monad.
 getRunMud :: Mud RunMud
