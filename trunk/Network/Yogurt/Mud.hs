@@ -34,9 +34,7 @@ module Network.Yogurt.Mud (
 
   -- * Triggering hooks
   trigger, triggerJust, io, flushResults,
-
-  -- * IO
-  withIO, runIO
+  liftIO
 
   ) where
 
@@ -127,7 +125,6 @@ type Interval = Int
 -- | A @Result@ is a consequence of executing a @Mud@ program.
 data Result
   = Send Destination String  -- no implicit newlines!
-  | forall a. RunIO (IO a) (a -> Mud ())
   | NewTimer Timer
 
 
@@ -307,16 +304,3 @@ fire message hook = do
 -- | Immediately write a message to a destination, without triggering hooks.
 io :: Destination -> String -> Mud ()
 io ch = addResult . Send ch
-
-
-
--- Section: IO.
-
-
--- | Invokes withIO, discarding the IO's result.
-runIO :: IO a -> Mud ()
-runIO io = withIO io (const $ return ())
-
--- | Executes the IO action soon. The computation's result is passed to the function, and the resulting Mud computation is executed.
-withIO :: IO a -> (a -> Mud ()) -> Mud ()
-withIO io = addResult . RunIO io

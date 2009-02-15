@@ -5,6 +5,7 @@ Description:    A MUD client library for Haskell. Features prioritized, regex-ba
 
 Author:         Martijn van Steenbergen
 Maintainer:     martijn@van.steenbergen.nl
+Stability:      Experimental
 Copyright:      Some Rights Reserved (CC) 2008-2009 Martijn van Steenbergen
 Homepage:       http://martijn.van.steenbergen.nl/projects/yogurt/
 

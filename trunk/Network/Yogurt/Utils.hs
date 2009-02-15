@@ -17,8 +17,7 @@ module Network.Yogurt.Utils (
   Logger, startLogging, stopLogging,
 
   -- * Miscellaneous
-  matchMore, matchMoreOn, matchMoreOn',
-  system
+  matchMore, matchMoreOn, matchMoreOn'
 
   ) where
 
@@ -29,6 +28,7 @@ import System.IO.Unsafe
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
 import Data.Time.LocalTime (getZonedTime)
+import Control.Monad.Trans
 
 
 
@@ -105,12 +105,11 @@ type Logger = (Hook, Hook)  -- Remote, Local
 -- | @startLogging name@ causes all messages to be logged in a file called @name-yyyymmdd-hhmm.log@. The used hooks have priority 100.
 startLogging :: String -> Mud Logger
 startLogging name = do
-  let suffix = unsafePerformIO $
-        fmap (formatTime defaultTimeLocale "-%Y%m%d-%H%M.log") getZonedTime
+  suffix <- liftIO $ fmap (formatTime defaultTimeLocale "-%Y%m%d-%H%M.log") getZonedTime
   let filename = name ++ suffix
   let record dest = mkPrioHook 100 dest "^" $ do
         line <- matchedLine
-        runIO (appendFile filename line)
+        liftIO $ appendFile filename line
         matchMore
   r <- record Remote
   l <- record Local
@@ -142,7 +141,3 @@ matchMoreOn' :: String -> Mud ()
 matchMoreOn' message = do
   h <- triggeredHook
   triggerJust (>= h) (hDestination h) message
-
--- | Executes a shell command.
-system :: String -> Mud ()
-system = runIO . P.runCommand
