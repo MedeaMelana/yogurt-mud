@@ -9,6 +9,7 @@ module Network.Yogurt.Mud (
   Destination(..),
   Pattern,
   Timer, Interval,
+  Var,
   Result(..),
 
   -- * Hooks
@@ -86,12 +87,6 @@ instance Eq Hook where
 
 instance Ord Hook where
   compare = flip $ mconcat [comparing hPriority, comparing hId]
-
-rev :: Ordering -> Ordering
-rev x = case x of
-  LT -> GT
-  EQ -> EQ
-  GT -> LT
 
 instance Show Hook where
   show (Hook hid prio dest pat _) = "Hook #" ++ show hid ++ " @" ++ show prio ++ " " ++ show dest ++ " [" ++ pat ++ "]"
