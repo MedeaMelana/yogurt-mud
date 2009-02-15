@@ -8,6 +8,7 @@ import Control.Monad.State
 import System.Console.Readline
 import Network.Yogurt.IO
 import Data.Char (isSpace)
+import System.Process
 
 
 -- | Used by 'runMud' to output messages and update the state during execution.
@@ -33,7 +34,8 @@ connect host port mud = do
   let env = (out, vState)
   forkIO (handleSource env localInput Remote)
   handleSource env (remoteInput h) Local
-
+  runCommand "stty echo" >>= waitForProcess
+  return ()
 
 -- Watches an input source and updates the mud state whenever a new message arrives.
 handleSource :: Environment ->        -- to run mud computations
@@ -65,7 +67,7 @@ localInput = do
 -- Remote input using a connection handle.
 remoteInput :: Handle -> IO (Maybe String)
 remoteInput h = do
-  input <- maybeInput (hGetImpatientLine h 50)
+  input <- maybeInput (hGetImpatientLine h 10)
   return input
 
 

@@ -2,17 +2,17 @@ default:
 	ghci NewMoon
 
 mtag = $(shell svn info | grep URL | sed 's/^.*Yogurt-//g')
-tag  = $(subst URL: svn://localhost/Yogurt/trunk,99.99,$(mtag))
+tag  = $(subst URL: https://yogurt-mud.googlecode.com/svn/trunk,99.99,$(mtag))
 
 cabal-config: clean
 	sed "s/@tag/$(tag)/g" < Yogurt.cabal-template > Yogurt.cabal
-	runghc Setup configure
+	cabal configure
 
 package: cabal-config
-	runghc Setup sdist
+	cabal sdist
 
 docs: cabal-config
-	runghc Setup haddock
+	cabal haddock
 
 clean:
 	find . -name '*.hi' -or -name '*.o' | xargs -n 1 rm

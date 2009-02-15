@@ -23,7 +23,8 @@ module Network.Yogurt.Utils (
   ) where
 
 import Network.Yogurt.Mud
-import qualified System.Cmd as Cmd
+-- import qualified System.Cmd as Cmd
+import qualified System.Process as P
 import System.IO.Unsafe
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
@@ -144,4 +145,4 @@ matchMoreOn' message = do
 
 -- | Executes a shell command.
 system :: String -> Mud ()
-system = runIO . Cmd.system
+system = runIO . P.runCommand
