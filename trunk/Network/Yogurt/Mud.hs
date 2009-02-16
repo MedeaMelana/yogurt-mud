@@ -4,12 +4,12 @@
 module Network.Yogurt.Mud (
 
   -- * Types
-  Mud, MudState, emptyMud, RunMud,
+  Mud, MudState, emptyMud,
+  RunMud, Output,
   Hook,
   Destination(..),
   Pattern,
   Var,
-  Output,
 
   -- * Hooks
   -- | A hook watches a channel for messages matching a specific regular expression.
@@ -32,7 +32,7 @@ module Network.Yogurt.Mud (
 
   -- * Triggering hooks
   trigger, triggerJust, io,
-  liftIO, getRunMud
+  liftIO, forkWithCallback
 
   ) where
 
@@ -46,6 +46,7 @@ import Data.Function (on)
 import Data.Ord (comparing)
 import Data.Monoid (mconcat)
 import Data.IORef
+import Control.Concurrent (forkIO, ThreadId)
 
 
 
@@ -58,6 +59,9 @@ type Mud = StateT MudState IO
 -- | Run a Mud computation in IO.
 type RunMud = forall a. Mud a -> IO a
 
+-- | Provides a way to output messages.
+type Output = Destination -> String -> IO ()
+
 -- | State internal to the Mud monad.
 data MudState = MudState
   { hooks     :: IntMap Hook
@@ -69,9 +73,13 @@ data MudState = MudState
 
 -- | The initial state of the Mud monad.
 emptyMud :: RunMud -> Output -> MudState
-emptyMud rm output = MudState empty [0..] Nothing rm output
+emptyMud = MudState empty [0..] Nothing
 
--- | The abstract Hook type. Two hooks are considered equal if they were created by the same call to 'mkHook'. Hook h1 < hook h2 if h1 will match earlier than h2.
+-- | The abstract @Hook@ type. For every pair of hooks @(h1, h2)@:
+--
+-- * @h1 == h2@ iff they were created by the same call to 'mkHook'.
+--
+-- * @h1 < h2@ iff @h1@ will match earlier than @h2@.
 data Hook = Hook
   { hId          :: Int
   , hPriority    :: Int          -- ^ Yields the hook's priority. 
@@ -89,13 +97,13 @@ instance Ord Hook where
 instance Show Hook where
   show (Hook hid prio dest pat _) = "Hook #" ++ show hid ++ " @" ++ show prio ++ " " ++ show dest ++ " [" ++ pat ++ "]"
 
--- | Used to distinguish between messages going in different directions.
+-- | The direction in which a message is going.
 data Destination
   = Local   -- ^ The message is headed towards the user's terminal.
   | Remote  -- ^ The message is headed towards the remote MUD server.
   deriving (Eq, Show, Read, Enum, Ord)
 
--- | A Pattern is a regular expression.
+-- | A @Pattern@ is a regular expression.
 type Pattern = String
 
 data MatchInfo = MatchInfo
@@ -110,9 +118,6 @@ data MatchInfo = MatchInfo
 newtype Var a = Var (IORef a)
 
 type Id = Int
-
--- | Provides a way to output messages.
-type Output = Destination -> String -> IO ()
 
 
 
@@ -198,11 +203,11 @@ after = fmap mAfter getMatchInfo
 
 -- | Creates a variable with an initial value.
 mkVar :: a -> Mud (Var a)
-mkVar val = liftM Var $ liftIO $ newIORef val
+mkVar = liftM Var . liftIO . newIORef
 
 -- | Updates a variable to a new value.
 setVar :: Var a -> a -> Mud ()
-setVar (Var var) val = liftIO $ writeIORef var val
+setVar (Var var) = liftIO . writeIORef var
 
 -- | Yields the variable's current value.
 readVar :: Var a -> Mud a
@@ -210,7 +215,7 @@ readVar (Var var) = liftIO $ readIORef var
 
 -- | Updates the variable using the update function.
 modifyVar :: Var a -> (a -> a) -> Mud ()
-modifyVar (Var var) f = liftIO $ modifyIORef var f
+modifyVar (Var var) = liftIO . modifyIORef var
 
 
 
@@ -247,8 +252,12 @@ io to msg = do
   out <- gets mOutput
   liftIO $ out to msg
 
--- | Allows execution of Mud programs within the IO monad.
-getRunMud :: Mud RunMud
-getRunMud = do
+-- | Used when you want a forked thread to be able to call back into the @Mud@ monad.
+-- Note that when using the @RunMud@ argument, the forked thread will have to contend
+-- with the threads for the user input and MUD input, because only one @Mud@ computation
+-- can run at any given time. The id of the forked thread is returned.
+forkWithCallback :: (RunMud -> IO ()) -> Mud ThreadId
+forkWithCallback action = do
+  -- Note: compiler complains if mRunMud is written point-free.
   s <- get
-  return (mRunMud s)
+  liftIO . forkIO . action $ mRunMud s

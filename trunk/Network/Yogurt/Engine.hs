@@ -24,18 +24,21 @@ connect host port mud = mdo
   let out ch msg = case ch of
         Local  -> writeToTTY msg
         Remote -> do hPutStr h msg; hFlush h
-  state0 <- execStateT mud (emptyMud (runMud vState) out)
-  vState <- newMVar state0
+  let state0 = emptyMud (runMud vState) out
+  state1 <- execStateT mud state0
+  vState <- newMVar state1
 
   -- Start child threads.
   forkIO (handleSource vState localInput Remote)
   handleSource vState (remoteInput h) Local
+  
+  -- Clean.
   runCommand "stty echo" >>= waitForProcess
   return ()
 
 
 -- Watches an input source and updates the mud state whenever a new message arrives.
-handleSource :: MVar MudState ->        -- to run mud computations
+handleSource :: MVar MudState ->      -- to run mud computations
                 IO (Maybe String) ->  -- input source
                 Destination ->        -- target destination
                 IO ()
