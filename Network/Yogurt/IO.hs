@@ -8,7 +8,7 @@ module Network.Yogurt.IO
 
 import System.IO
 import System.Console.Readline
-import Control.Monad (when)
+import Control.Monad (when, liftM)
 import Data.List (elemIndices)
 
 writeToTTY :: String -> IO ()
@@ -35,9 +35,9 @@ writeToTTY msg = do
   redisplay
 
 -- Splits a message x in two submessages y and z such that:
--- * x == y ++ z
--- * all (/= '\n') z
--- * null y || last y == '\n'  (i.e. z is maximal)
+-- * @x == y ++ z@
+-- * @'all' (/= '\n') z@
+-- * @'null' y || 'last' y == '\n'@  (i.e. z is maximal)
 splitAtPrompt :: String -> (String, String)
 splitAtPrompt cs = case elemIndices '\n' cs of
   [] -> ("", cs)
@@ -58,6 +58,5 @@ hGetImpatientLine h patience = rec where
       else do
         b <- hWaitForInput h patience
         if b
-          then rec >>= return . (c:)
+          then liftM (c:) rec
           else return [c]
-

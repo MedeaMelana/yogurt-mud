@@ -2,9 +2,6 @@
 
 -- | Convenience functions on top of "Yogurt.Mud".
 module Network.Yogurt.Utils (
-  -- * Re-exports
-  module Network.Yogurt.Mud,
-
   -- * Hook and timer derivatives
   mkTrigger, mkTriggerOnce,
   mkAlias, mkArgAlias, mkCommand,
@@ -24,11 +21,12 @@ module Network.Yogurt.Utils (
   ) where
 
 import Network.Yogurt.Mud
+import Control.Concurrent
+import Control.Monad
+
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
 import Data.Time.LocalTime (getZonedTime)
-import Control.Concurrent
-import Control.Monad
 
 
 
@@ -75,10 +73,10 @@ type Interval = Int
 -- | @mkTimer interval prog@ creates a timer that executes @prog@ every @interval@ milliseconds.
 mkTimer :: Interval -> Mud a -> Mud Timer
 mkTimer interval prog = do
-    runMud <- getRunMud
     vActive <- mkVar True
     
-    let timerCycle = do
+    let timerCycle :: RunMud -> IO ()
+        timerCycle runMud = do
           threadDelay (1000 * interval)  -- interval in ms, threadDelay expects micros
 
           -- Execute timer action only if timer hasn't been deactivated in the meantime.
@@ -88,9 +86,9 @@ mkTimer interval prog = do
 
           -- Maybe the timer's action removed the timer. If not, run again.
           again <- runMud (readVar vActive)
-          when again timerCycle
+          when again (timerCycle runMud)
 
-    liftIO $ forkIO timerCycle
+    forkWithCallback timerCycle
     return (Timer vActive)
 
 -- | Creates a timer that fires only once.
@@ -166,7 +164,10 @@ stopLogging (r, l) = do
 -- Miscellaneous.
 
 
--- | When called from a hook body, gives hooks that haven't been considered yet a chance to match on the currently triggering message. Useful if you want to build a hook that only has a side-effect and doesn't want to directly affect the other active hooks.
+-- | When called from a hook body, gives hooks that haven't been considered yet
+-- a chance to match on the currently triggering message. Useful if you want to
+-- build a hook that only has a side-effect and doesn't want to directly affect
+-- the other active hooks.
 matchMore :: Mud ()
 matchMore = matchedLine >>= matchMoreOn
 
