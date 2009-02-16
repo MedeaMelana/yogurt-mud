@@ -4,4 +4,4 @@ then
 	exit 1
 fi
 
-svn copy svn://localhost/Yogurt/trunk svn://localhost/Yogurt/tags/Yogurt-${1}
+svn copy https://yogurt-mud.googlecode.com/svn/trunk https://yogurt-mud.googlecode.com/svn/tags/Yogurt-${1}
