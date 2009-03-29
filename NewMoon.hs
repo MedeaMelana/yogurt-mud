@@ -9,7 +9,7 @@ import Network.Yogurt.Utils
 import Data.Char (isSpace, isDigit)
 
 main :: IO ()
-main = connect "eclipse.cs.pdx.edu" 7680 newmoon
+main = connect "t2tmud.org" 9999 newmoon
 
 newmoon :: Mud ()
 newmoon = mdo

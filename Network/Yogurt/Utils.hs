@@ -2,7 +2,7 @@
 
 -- | Convenience functions on top of "Yogurt.Mud".
 module Network.Yogurt.Utils (
-  -- * Hook and timer derivatives
+  -- * Hook derivatives
   mkTrigger, mkTriggerOnce,
   mkAlias, mkArgAlias, mkCommand,
 
@@ -30,7 +30,7 @@ import Data.Time.LocalTime (getZonedTime)
 
 
 
--- Hook and timer derivatives.
+-- Hook derivatives.
 
 
 -- | Creates a hook that watches messages headed to the terminal. When fired, the message is passed on to the terminal and the action is executed.
@@ -64,7 +64,7 @@ mkCommand pat = mkHook Remote ("^" ++ pat ++ "($| .*$)")
 -- Section: Timers.
 
 
--- | The abstract Time type.
+-- | The abstract Timer type.
 newtype Timer = Timer (Var Bool)
 
 -- | Interval in milliseconds.
@@ -110,13 +110,16 @@ isTimerActive (Timer vActive) = readVar vActive
 -- Sending messages.
 
 
+withNewline :: String -> String
+withNewline = (++ "\r\n")
+
 -- | Sends a message to the terminal, triggering hooks.
 receive :: String -> Mud ()
 receive = trigger Local
 
 -- | Sends a message appended with a newline character to the MUD, triggering hooks.
 sendln :: String -> Mud ()
-sendln m = trigger Remote (m ++ "\n")
+sendln = trigger Remote . withNewline
 
 -- | Sends a message to the terminal, without triggering hooks.
 echo :: String -> Mud ()
@@ -124,11 +127,11 @@ echo = io Local
 
 -- | Sends a message appended with a newline character to the terminal, without triggering hooks.
 echoln :: String -> Mud ()
-echoln m = echo (m ++ "\n")
+echoln = echo . withNewline
 
 -- | Sends a message appended with a newline character to the MUD, without triggering hooks.
 echorln :: String -> Mud ()
-echorln m = io Remote (m ++ "\n")
+echorln = io Remote . withNewline
 
 -- | Sends a bell character to the terminal.
 bell :: Mud ()

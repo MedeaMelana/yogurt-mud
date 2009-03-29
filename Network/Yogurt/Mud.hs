@@ -4,7 +4,7 @@
 module Network.Yogurt.Mud (
 
   -- * Types
-  Mud, MudState, emptyMud,
+  Mud, MudState, emptyMud, reset,
   RunMud, Output,
   Hook,
   Destination(..),
@@ -32,6 +32,8 @@ module Network.Yogurt.Mud (
 
   -- * Triggering hooks
   trigger, triggerJust, io,
+  
+  -- * Multi-threading
   liftIO, forkWithCallback
 
   ) where
@@ -75,6 +77,10 @@ data MudState = MudState
 emptyMud :: RunMud -> Output -> MudState
 emptyMud = MudState empty [0..] Nothing
 
+-- | Reset the Mud monad to its initial, empty state.
+reset :: Mud ()
+reset = modify $ \s -> s { hooks = empty, supply = [0..] }
+
 -- | The abstract @Hook@ type. For every pair of hooks @(h1, h2)@:
 --
 -- * @h1 == h2@ iff they were created by the same call to 'mkHook'.
@@ -114,7 +120,7 @@ data MatchInfo = MatchInfo
   , mAfter         :: String
   }
 
--- | Variables hold temporary, updatable, typed data.
+-- | Variables hold updatable, typed data.
 newtype Var a = Var (IORef a)
 
 type Id = Int
