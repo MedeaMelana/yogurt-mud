@@ -3,6 +3,7 @@
 module Network.Yogurt.Engine (connect, runMud) where
 
 import Network.Yogurt.Mud
+import Network.Yogurt.Session
 import System.IO
 import Network
 import Control.Concurrent
