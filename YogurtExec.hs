@@ -95,8 +95,10 @@ printVersion = do
 printHelp :: IO ()
 printHelp = do
   printVersion
-  errLn ""
-  err $ usageInfo "Available options:" options
+  errLn $ ""
+  errLn $ "Usage: yogurt <module> [<session>]"
+  errLn $ ""
+  err   $ usageInfo "Available options:" options
 
 err :: String -> IO ()
 err = hPutStr stderr
