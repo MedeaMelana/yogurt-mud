@@ -2,13 +2,15 @@
 
 -- | Every Yogurt file should define a function @main@ of type 'Session'. For future compatibility, such a session is best defined using 'session' as starting value:
 --
--- > main :: Session
--- > main = session
+-- > newmoon :: Session
+-- > newmoon = session
 -- >   { hostName   = "eclipse.cs.pdx.edu"
 -- >   , portNumber = 7680
 -- >   , mudProgram = \reload -> do
 -- >       mkCommand "reload" reload
 -- >   }
+-- 
+-- A module is free to define multiple sessions, in which case you will have to tell @yogurt@ which session to load.
 module Network.Yogurt.Session (
     Session(..), Reload, session, loadPlugin
   ) where
@@ -45,10 +47,15 @@ session = Session
 loadPlugin :: String -> IO (Either InterpreterError [(String, Session)])
 loadPlugin moduleName = runInterpreter $ do
   loadModules [moduleName]
-  setImports ["Prelude", "Network.Yogurt.Session", moduleName]
-  symbols <- map name `liftM` getModuleExports moduleName
-  typedSymbols <- mapM (\s -> (,) `liftM` return s `ap` typeOf s) symbols
-  let sessionNames = [ n | (n, t) <- typedSymbols, t == "Session" ]
-  forM sessionNames $ \sn -> do
-    session <- interpret sn (as :: Session)
-    return (sn, session)
+  loadedModuleNames <- getLoadedModules
+  if not (moduleName `elem` loadedModuleNames)
+    then do
+      fail "The module's name must match the filename."
+    else do
+      setImports ["Prelude", "Network.Yogurt.Session", moduleName]
+      symbols <- map name `liftM` getModuleExports moduleName
+      typedSymbols <- mapM (\s -> (,) `liftM` return s `ap` typeOf s) symbols
+      let sessionNames = [ n | (n, t) <- typedSymbols, t == "Session" ]
+      forM sessionNames $ \sn -> do
+        session <- interpret sn (as :: Session)
+        return (sn, session)
