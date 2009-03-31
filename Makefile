@@ -11,6 +11,9 @@ config: clean
 build: config
 	cabal build
 
+install: config
+	cabal install
+
 package: config
 	cabal sdist
 
