@@ -1,4 +1,4 @@
-= Minimal example =
+== Minimal example ==
 
 After installing Yogurt, create a file called NewMoon.hs and put the following text in it:
 
@@ -16,7 +16,7 @@ newmoon = session
 
 This is the smallest example: a single session specifying the host and port to connect to, but no scripting.
 
-= A more involved example =
+== A more involved example ==
 
 The following example demonstrates some of the features Yogurt boasts.
 
