@@ -1,3 +1,5 @@
+#summary A few examples to get you started
+
 All examples are also available in the download from hackage.
 
 == Minimal example ==
@@ -60,6 +62,7 @@ installHooks = do
   mkTrigger "^[^ ]+ tells you: " bell
 
   -- Send a carriage return every 5 minutes to keep the connection alive.
+  -- Most MUDs don't like this...
   mkTimer (5 * 60 * 1000) (sendln "")
 
   -- Enable calling system commands during a session.
