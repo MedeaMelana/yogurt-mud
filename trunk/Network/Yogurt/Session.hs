@@ -19,6 +19,7 @@ import Network.Yogurt.Mud
 import Data.Generics (Typeable)
 import Language.Haskell.Interpreter
 import Control.Monad
+import Data.List (elemIndices)
 
 -- | Describes a MUD session.
 data Session = Session
@@ -45,14 +46,17 @@ session = Session
 
 -- | Given a module name, yields all sessions and their names defined in that module.
 loadPlugin :: String -> IO (Either InterpreterError [(String, Session)])
-loadPlugin moduleName = runInterpreter $ do
+loadPlugin mn = runInterpreter $ do
+  let moduleName = case elemIndices '.' mn of
+        []  -> mn
+        is  -> take (last is) mn
   loadModules [moduleName]
   loadedModuleNames <- getLoadedModules
   if not (moduleName `elem` loadedModuleNames)
     then do
       fail "The module's name must match the filename."
     else do
-      setImports ["Prelude", "Network.Yogurt.Session", moduleName]
+      setImports ["Network.Yogurt.Session", moduleName]
       symbols <- map name `liftM` getModuleExports moduleName
       typedSymbols <- mapM (\s -> (,) `liftM` return s `ap` typeOf s) symbols
       let sessionNames = [ n | (n, t) <- typedSymbols, t == "Session" ]
