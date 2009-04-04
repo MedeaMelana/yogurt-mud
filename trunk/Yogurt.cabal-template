@@ -1,13 +1,17 @@
 Name:           Yogurt
 Version:        @tag
 Synopsis:       A MUD client
-Description:    A MUD client for Haskell. Features prioritized, regex-based hooks, variables, timers, logging, dynamic loading of Yogurt scripts and more.
+Description:   	A MUD client for Haskell. Yogurt features prioritized, regex-based hooks, variables, timers, logging, dynamic loading of Yogurt scripts and more.
+                .
+                Yogurt can be used as a library (using @connect@ in @Network.Yogurt.Engine@ to start a connection) or as a standalone program, in which case a Yogurt file can be dynamically loaded and executed. A Yogurt file is a normal Haskell file that defines one or more sessions; see module @Network.Yogurt.Session@.
+
 
 Author:         Martijn van Steenbergen
 Maintainer:     martijn@van.steenbergen.nl
 Stability:      Experimental
 Copyright:      Some Rights Reserved (CC) 2008-2009 Martijn van Steenbergen
-Homepage:       http://martijn.van.steenbergen.nl/projects/yogurt/
+Homepage:       http://code.google.com/p/yogurt-mud/
+
 
 Cabal-Version:  >= 1.2
 License:        BSD3
@@ -15,12 +19,24 @@ License-file:   LICENSE
 Category:       Network
 Build-type:     Simple
 
+
 Library
-  Build-Depends:    base >= 4 && < 5, mtl, regex-posix, containers, time, old-locale, readline, network, process, syb, hint
   Exposed-Modules:  Network.Yogurt, Network.Yogurt.Mud, Network.Yogurt.Utils, Network.Yogurt.Engine, Network.Yogurt.Session
   Other-Modules:    Network.Yogurt.Ansi, Network.Yogurt.IO
+  Build-Depends:    mtl, regex-posix, containers, time, old-locale, readline, network, process, hint
+  if impl(ghc >= 6.10) {
+        Build-Depends:  base >= 4, base < 5, syb
+  } else {
+        Build-Depends:  base >= 3, base < 4
+  }
+
 
 Executable yogurt
   Main-Is:          YogurtExec.hs
-  Build-Depends:    base >= 4 && < 5, mtl, regex-posix, containers, time, old-locale, readline, network, process, syb, hint
   GHC-Options:      -threaded
+  Build-Depends:    mtl, regex-posix, containers, time, old-locale, readline, network, process, hint
+  if impl(ghc >= 6.10) {
+        Build-Depends:  base >= 4, base < 5, syb
+  } else {
+        Build-Depends:  base >= 3, base < 4
+  }

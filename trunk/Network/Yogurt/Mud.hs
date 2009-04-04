@@ -1,10 +1,12 @@
-{-# OPTIONS_GHC -fglasgow-exts #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE LiberalTypeSynonyms #-}
 
 -- | The core of Yogurt, consisting of the Mud monad and all functions manipulating this monad.
 module Network.Yogurt.Mud (
 
   -- * Types
-  Mud, MudState, emptyMud, reset,
+  Mud, MudState, emptyMud,
   RunMud, Output,
   Hook,
   Destination(..),
@@ -77,10 +79,6 @@ data MudState = MudState
 emptyMud :: RunMud -> Output -> MudState
 emptyMud = MudState empty [0..] Nothing
 
--- | Reset the Mud monad to its initial, empty state.
-reset :: Mud ()
-reset = modify $ \s -> s { hooks = empty, supply = [0..] }
-
 -- | The abstract @Hook@ type. For every pair of hooks @(h1, h2)@:
 --
 -- * @h1 == h2@ iff they were created by the same call to 'mkHook'.
@@ -98,10 +96,10 @@ instance Eq Hook where
   (==) = (==) `on` hId
 
 instance Ord Hook where
-  compare = flip $ mconcat [comparing hPriority, comparing hId]
+  compare = flip $ mconcat [comparing hDestination, comparing hPriority, comparing hId]
 
 instance Show Hook where
-  show (Hook hid prio dest pat _) = "Hook #" ++ show hid ++ " @" ++ show prio ++ " " ++ show dest ++ " [" ++ pat ++ "]"
+  show (Hook hid prio dest pat _) = show dest ++ " @" ++ show prio ++ " [" ++ pat ++ "]"
 
 -- | The direction in which a message is going.
 data Destination
