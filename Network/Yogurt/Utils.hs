@@ -1,9 +1,10 @@
-{-# OPTIONS_GHC -fglasgow-exts #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | Convenience functions on top of "Yogurt.Mud".
 module Network.Yogurt.Utils (
   -- * Hook derivatives
-  mkTrigger, mkTriggerOnce,
+  mkTrigger, mkTriggerOnce, triggerOneOf,
   mkAlias, mkArgAlias, mkCommand,
 
   -- * Timers
@@ -43,6 +44,13 @@ mkTriggerOnce pat act = mdo  -- whoo! recursive monads!
   hook <- mkTrigger pat (act >> rmHook hook)
   return hook
 
+-- | For each pair @(pattern, action)@ a hook is installed. As soon as one of the hooks fires, the hooks are removed and the corresponding action is executed.
+triggerOneOf :: [(Pattern, Mud ())] -> Mud ()
+triggerOneOf pairs = mdo
+  hs <- forM pairs $ \(pat, act) -> do
+    mkTrigger pat (forM hs rmHook >> act)
+  return ()
+
 -- | @mkAlias command subst@ creates a hook that watches messages headed to the remote MUD. If the message is or starts with the word @command@, the command is replaced by @subst@ before being sent to the MUD.
 mkAlias :: String -> String -> Mud Hook
 mkAlias pat subst = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
@@ -55,7 +63,7 @@ mkArgAlias pat f = mkHook Remote ("^" ++ pat ++ "($| .*$)") $ do
   args <- fmap words (group 1)
   echorln (f args)
 
--- | Like 'mkAlias', but instead of substituting the command, a program is executed.
+-- | Like 'mkAlias', but instead of substituting the command, a program is executed. The command's arguments are available as 'group' 1.
 mkCommand :: String -> Mud a -> Mud Hook
 mkCommand pat = mkHook Remote ("^" ++ pat ++ "($| .*$)")
 

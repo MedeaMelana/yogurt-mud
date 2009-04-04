@@ -70,6 +70,7 @@ indent = unlines . map ("  " ++ ) . lines
 
 loadSession :: String -> PickSession -> IO ()
 loadSession moduleName pick = do
+  errLn $ "Loading module " ++ moduleName ++ "..."
   mSessions <- loadPlugin moduleName
   case mSessions of
     Left e -> do
@@ -125,6 +126,6 @@ reload moduleName sessionName = fix $ \loop -> do
           echoln $ "Module " ++ moduleName ++
                       " no longer contains a session called \"" ++ sessionName ++ "\"."
         Just session -> do
-          reset
+          mapM_ rmHook =<< allHooks
           mudProgram session loop
           echoln "Done."

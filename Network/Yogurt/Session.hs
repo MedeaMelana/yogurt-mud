@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
--- | Every Yogurt file should define a function @main@ of type 'Session'. For future compatibility, such a session is best defined using 'session' as starting value:
+-- | Every Yogurt file should define a value of type 'Session'. For future compatibility, such a session is best defined using 'session' as starting value:
 --
+-- > import Network.Yogurt
+-- >
 -- > newmoon :: Session
 -- > newmoon = session
 -- >   { hostName   = "eclipse.cs.pdx.edu"
@@ -33,7 +35,7 @@ data Session = Session
   }
   deriving Typeable
 
--- | When executed, reloads the session from disk without interrupting the MUD connection.
+-- | When executed, reloads the session from disk without interrupting the MUD connection. All hooks are uninstalled before re-executing the reloaded program. Timers are /not/ stopped and previous variables will still be reachable if you still have their handles.
 type Reload = Mud ()
 
 -- | Starting value for sessions. The default 'mudProgram' is @return ()@. There are no default values for 'hostName' and 'portNumber'.
