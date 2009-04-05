@@ -1,20 +1,24 @@
 {-# LANGUAGE RecursiveDo #-}
 
-module Network.Yogurt.Engine (connect, runMud) where
+-- | Provides a readline-based command-line interface for connecting to MUDs. 
+module Network.Yogurt.Readline (
+    connect
+  ) where
 
 import Network.Yogurt.Mud
-import Network.Yogurt.Session
-import System.IO
-import Network
-import Control.Concurrent
-import Control.Monad.State
-import System.Console.Readline
 import Network.Yogurt.IO
+
+import Control.Monad.State
+import Control.Concurrent.MVar
+import System.IO
 import Data.Char (isSpace)
+import System.Console.Readline
+import Control.Concurrent
+import Network
 import System.Process
 
 
--- | @connect hostname port program@ connects to a MUD and executes the specified program. Input is read from @stdin@, and output is written to @stdout@.
+-- | @connect hostname port program@ connects to a MUD and executes the specified program on connecting. Input is read from @stdin@, and output is written to @stdout@.
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = mdo
   -- Connect.
@@ -32,7 +36,7 @@ connect host port mud = mdo
   -- Start child threads.
   forkIO (handleSource vState localInput Remote)
   handleSource vState (remoteInput h) Local
-  
+
   -- Clean.
   runCommand "stty echo" >>= waitForProcess
   return ()
@@ -70,12 +74,3 @@ remoteInput :: Handle -> IO (Maybe String)
 remoteInput h = do
   input <- maybeInput (hGetImpatientLine h 10)
   return input
-
-
--- | Runs a Mud computation, executes the results (such as sending messages to the screen or the MUD) and returns the computation's result. The MVar is updated.
-runMud :: MVar MudState -> Mud a -> IO a
-runMud vState prog = do
-  s <- takeMVar vState
-  (rv, s') <- runStateT prog s
-  putMVar vState s'
-  return rv

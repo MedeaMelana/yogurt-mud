@@ -6,12 +6,15 @@
 module Network.Yogurt.Mud (
 
   -- * Types
-  Mud, MudState, emptyMud,
+  Mud, MudState,
   RunMud, Output,
   Hook,
   Destination(..),
   Pattern,
   Var,
+  
+  -- * Running Mud computations
+  emptyMud, runMud,
 
   -- * Hooks
   -- | A hook watches a channel for messages matching a specific regular expression.
@@ -51,6 +54,7 @@ import Data.Ord (comparing)
 import Data.Monoid (mconcat)
 import Data.IORef
 import Control.Concurrent (forkIO, ThreadId)
+import Control.Concurrent.MVar
 
 
 
@@ -74,10 +78,6 @@ data MudState = MudState
   , mRunMud   :: RunMud
   , mOutput   :: Output
   }
-
--- | The initial state of the Mud monad.
-emptyMud :: RunMud -> Output -> MudState
-emptyMud = MudState empty [0..] Nothing
 
 -- | The abstract @Hook@ type. For every pair of hooks @(h1, h2)@:
 --
@@ -136,6 +136,23 @@ mkId = do
 
 updateHooks :: (IntMap Hook -> IntMap Hook) -> Mud ()
 updateHooks f = modify $ \s -> s { hooks = f (hooks s) }
+
+
+
+-- Section: Running Mud computations
+
+
+-- | The initial state of the Mud monad.
+emptyMud :: RunMud -> Output -> MudState
+emptyMud = MudState empty [0..] Nothing
+
+-- | Runs a Mud computation, executes the results (such as sending messages to the screen or the MUD) and returns the computation's result. The MVar is updated.
+runMud :: MVar MudState -> Mud a -> IO a
+runMud vState prog = do
+  s <- takeMVar vState
+  (rv, s') <- runStateT prog s
+  putMVar vState s'
+  return rv
 
 
 
