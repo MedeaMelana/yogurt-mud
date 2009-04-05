@@ -16,7 +16,8 @@ module Network.Yogurt.Utils (
   -- * Logging
   Logger, startLogging, stopLogging,
 
-  -- * Miscellaneous
+  -- * Triggering multiple hooks
+  -- | By default, when a message causes a hook to fire, the message is stopped and discarded unless the hook decides otherwise. These functions provide ways to give other hooks with lower priorities a chance to fire as well.
   matchMore, matchMoreOn, matchMoreOn'
 
   ) where
@@ -176,7 +177,8 @@ stopLogging (r, l) = do
 
 
 -- | When called from a hook body, gives hooks that haven't been considered yet
--- a chance to match on the currently triggering message. Useful if you want to
+-- a chance to match on the currently triggering message. If no other hooks match,
+-- the message is sent on to its destination. Useful if you want to
 -- build a hook that only has a side-effect and doesn't want to directly affect
 -- the other active hooks.
 matchMore :: Mud ()

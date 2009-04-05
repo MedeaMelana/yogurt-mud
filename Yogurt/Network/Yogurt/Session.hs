@@ -1,6 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
--- | Every Yogurt file should define a value of type 'Session'. For future compatibility, such a session is best defined using 'session' as starting value:
+-- | 
+-- Sessions are used by Yogurt's standalone executable @yogurt@; see package @Yogurt-Standalone@ on hackage.
+--
+-- Every Yogurt file loaded by @yogurt@ should define a value of type 'Session'. For future compatibility, such a session is best defined using 'session' as starting value:
 --
 -- > import Network.Yogurt
 -- >
@@ -34,7 +37,7 @@ data Session = Session
   }
   deriving Typeable
 
--- | When executed, reloads the session from disk without interrupting the MUD connection. All hooks are uninstalled before re-executing the reloaded program. Timers are /not/ stopped and previous variables will still be reachable if you still have their handles.
+-- | When executed, reloads the session from disk without interrupting the MUD connection. If the reloaded session contains no errors, all hooks are uninstalled before the reloaded program is executed. Timers are /not/ stopped and previous variables will still be reachable if you still have their handles.
 type Reload = Mud ()
 
 -- | Starting value for sessions. The default 'mudProgram' is @return ()@. There are no default values for 'hostName' and 'portNumber'.

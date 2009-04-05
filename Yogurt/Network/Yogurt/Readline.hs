@@ -18,7 +18,7 @@ import Network
 import System.Process
 
 
--- | @connect hostname port program@ connects to a MUD and executes the specified program on connecting. Input is read from @stdin@, and output is written to @stdout@.
+-- | @connect hostname port program@ connects to a MUD and executes the specified program on connecting. Input is read from @stdin@ and output is written to @stdout@.
 connect :: String -> Int -> Mud () -> IO ()
 connect host port mud = mdo
   -- Connect.
