@@ -1,5 +1,5 @@
 Name:           Yogurt
-Version:        @tag
+Version:        0.4
 Synopsis:       A MUD client
 Description:   	A MUD client for Haskell. Yogurt features prioritized, regex-based hooks, variables, timers, logging, dynamic loading of Yogurt scripts and more.
                 .
@@ -20,23 +20,22 @@ Category:       Network
 Build-type:     Simple
 
 
+Flag readline
+  Description:  Enable the readline CLI functions.
+  Default:      True
+
+
 Library
-  Exposed-Modules:  Network.Yogurt, Network.Yogurt.Mud, Network.Yogurt.Utils, Network.Yogurt.Engine, Network.Yogurt.Session
-  Other-Modules:    Network.Yogurt.Ansi, Network.Yogurt.IO
-  Build-Depends:    mtl, regex-posix, containers, time, old-locale, readline, network, process, hint
-  if impl(ghc >= 6.10) {
-        Build-Depends:  base >= 4, base < 5, syb
-  } else {
-        Build-Depends:  base >= 3, base < 4
-  }
+  Exposed-Modules:  Network.Yogurt, Network.Yogurt.Mud, Network.Yogurt.Utils, Network.Yogurt.Session
+  Other-Modules:    Network.Yogurt.Ansi
+  Build-Depends:    mtl, regex-posix, containers, time, old-locale
 
+  if impl(ghc >= 6.10)
+    Build-Depends:  base >= 4, base < 5, syb
+  else
+    Build-Depends:  base >= 3, base < 4
 
-Executable yogurt
-  Main-Is:          YogurtExec.hs
-  GHC-Options:      -threaded
-  Build-Depends:    mtl, regex-posix, containers, time, old-locale, readline, network, process, hint
-  if impl(ghc >= 6.10) {
-        Build-Depends:  base >= 4, base < 5, syb
-  } else {
-        Build-Depends:  base >= 3, base < 4
-  }
+--  if flag(readline)
+  Exposed-Modules:  Network.Yogurt.Readline
+  Other-Modules:    Network.Yogurt.IO
+  Build-Depends:    readline, process, network
