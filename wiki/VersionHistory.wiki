@@ -1,6 +1,6 @@
 #summary Yogurt's version history
 
-== 0.4 ==
+== 0.4 — Friday 10 April 2009 ==
 
   * Yogurt has become a standalone executable and is able to dynamically load and reload Yogurt scripts.
 
