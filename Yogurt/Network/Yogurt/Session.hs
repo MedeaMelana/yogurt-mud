@@ -31,13 +31,15 @@ data Session = Session
     hostName    :: String
     -- | The port to connect to.
   , portNumber  :: Int
-    -- | The initial program to run. The Reload argument provides a way to
+    -- | The initial program to run. The 'Reload' argument provides a way to
     --   reload the plugin without interrupting the MUD connection.
   , mudProgram  :: Reload -> Mud ()
   }
   deriving Typeable
 
--- | When executed, reloads the session from disk without interrupting the MUD connection. If the reloaded session contains no errors, all hooks are uninstalled before the reloaded program is executed. Timers are /not/ stopped and previous variables will still be reachable if you still have their handles.
+-- | When executed, reloads the session from disk without interrupting the MUD connection. If the reloaded
+--   session contains no errors, all hooks are uninstalled before the reloaded program is executed. Timers
+--   are /not/ stopped and previous variables will still be reachable if you hang on to their handles.
 type Reload = Mud ()
 
 -- | Starting value for sessions. The default 'mudProgram' is @return ()@. There are no default values for 'hostName' and 'portNumber'.
