@@ -90,7 +90,7 @@ printVersion :: IO ()
 printVersion = do
   errLn $ "Yogurt version " ++ showVersion P.version
   errLn $ "Using version " ++ showVersion version ++ " of the Yogurt library"
-  errLn $ "Some Rights Reserved (CC) 2008-2009 Martijn van Steenbergen"
+  errLn $ "Some Rights Reserved (CC) 2008-2011 Martijn van Steenbergen"
   errLn $ "http://martijn.van.steenbergen.nl/projects/yogurt/"
 
 printHelp :: IO ()
