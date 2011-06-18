@@ -1,8 +1,5 @@
 Ideas:
 * errors/fail
-* plugins
-* load/write state
-* strefs
 
 To do before uploading a new version:
 * update examples
