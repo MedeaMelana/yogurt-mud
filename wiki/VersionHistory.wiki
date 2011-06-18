@@ -1,5 +1,9 @@
 #summary Yogurt's version history
 
+== 0.4.1 — Saturday 18 June 2011 ==
+
+  * Fixed a compiler error introduced in GHC 7.
+
 == 0.4 — Friday 10 April 2009 ==
 
   * Yogurt has become a standalone executable and is able to dynamically load and reload Yogurt scripts.
