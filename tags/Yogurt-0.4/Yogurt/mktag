@@ -1,0 +1,7 @@
+if [[ ! "${1}" ]]
+then
+	echo "Usage: $0 major.minor"
+	exit 1
+fi
+
+svn copy https://yogurt-mud.googlecode.com/svn/trunk https://yogurt-mud.googlecode.com/svn/tags/Yogurt-${1}

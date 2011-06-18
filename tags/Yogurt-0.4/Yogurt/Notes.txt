@@ -1,0 +1,5 @@
+Ideas:
+* errors/fail
+* plugins
+* load/write state
+* strefs
