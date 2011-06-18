@@ -3,3 +3,10 @@ Ideas:
 * plugins
 * load/write state
 * strefs
+
+To do before uploading a new version:
+* update examples
+* update year in copyright notice
+* bump version number in Yogurt.cabal
+* update change log (in wiki)
+* create tag (using mktag)
