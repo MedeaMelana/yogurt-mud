@@ -281,4 +281,4 @@ forkWithCallback :: (RunMud -> IO ()) -> Mud ThreadId
 forkWithCallback action = do
   -- Note: compiler complains if mRunMud is written point-free.
   s <- get
-  liftIO . forkIO . action $ mRunMud s
+  liftIO . forkIO $ action (mRunMud s)
